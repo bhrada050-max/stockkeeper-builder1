@@ -11,10 +11,16 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -22,41 +28,177 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          sudo apt-get install -y \
+            git \
+            zip \
+            unzip \
+            wget \
+            curl \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo5 \
+            cmake \
+            libffi-dev \
+            libssl-dev
 
-      - name: Install Buildozer
+      - name: Install Buildozer and Cython
         run: |
-          pip3 install --user --upgrade buildozer cython
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade buildozer cython
 
-      - name: Setup Android SDK cmdline-tools
+      - name: Setup Android SDK
+        shell: bash
         run: |
-          SDK_DIR=~/.buildozer/android/platform/android-sdk
-          mkdir -p $SDK_DIR/tools
+          set -eux
+
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+
+          mkdir -p "$SDK/cmdline-tools"
+
           cd /tmp
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
-          unzip -q cmdline-tools.zip
-          mv cmdline-tools/* $SDK_DIR/tools/
-          chmod +x $SDK_DIR/tools/bin/*
 
-      - name: Accept SDK licenses
-        run: |
-          mkdir -p ~/.buildozer/android/platform/android-sdk/licenses
-          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-          echo "84831b9409646a918e30573bab4c9c91346d8abd" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
-          mkdir -p ~/.android
-          touch ~/.android/repositories.cfg
+          wget -q \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+            -O commandlinetools.zip
 
-      - name: Rename StockKeeper.py to main.py
+          unzip -q commandlinetools.zip
+
+          rm -rf "$SDK/cmdline-tools/latest"
+
+          mv cmdline-tools "$SDK/cmdline-tools/latest"
+
+          chmod +x "$SDK/cmdline-tools/latest/bin/"*
+
+          # Environment
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+
+          # Compatibility with Buildozer versions that still expect tools/bin
+          mkdir -p "$SDK/tools"
+
+          ln -sfn \
+            "$SDK/cmdline-tools/latest/bin" \
+            "$SDK/tools/bin"
+
+          echo "===== SDK STRUCTURE ====="
+          ls -la "$SDK"
+          ls -la "$SDK/tools"
+          ls -la "$SDK/tools/bin"
+
+          echo "===== SDKMANAGER ====="
+          "$SDK/tools/bin/sdkmanager" --version
+
+      - name: Accept Android licenses
+        shell: bash
         run: |
+          set -eux
+
+          yes | sdkmanager --licenses >/dev/null || true
+
+          mkdir -p "$ANDROID_SDK_ROOT/licenses"
+
+          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" \
+            > "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
+
+          echo "84831b9409646a918e30573bab4c9c91346d8abd" \
+            > "$ANDROID_SDK_ROOT/licenses/android-sdk-preview-license"
+
+          mkdir -p "$HOME/.android"
+          touch "$HOME/.android/repositories.cfg"
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -eux
+
+          echo "===== AVAILABLE SDK ====="
+          sdkmanager --list | head -100
+
+          echo "===== INSTALL PACKAGES ====="
+
+          yes | sdkmanager \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "ndk;25.2.9519653"
+
+          echo "===== INSTALLED PACKAGES ====="
+
+          sdkmanager --list_installed
+
+          echo "===== BUILD TOOLS ====="
+          ls -la "$ANDROID_SDK_ROOT/build-tools"
+
+          echo "===== PLATFORM ====="
+          ls -la "$ANDROID_SDK_ROOT/platforms"
+
+      - name: Prepare application
+        shell: bash
+        run: |
+          set -eux
+
           if [ -f StockKeeper.py ]; then
             cp StockKeeper.py main.py
           fi
 
+          test -f main.py
+
+          echo "===== PROJECT ====="
+          ls -la
+
+      - name: Verify Java
+        shell: bash
+        run: |
+          set -eux
+
+          echo "JAVA_HOME=$JAVA_HOME"
+
+          java -version
+          javac -version
+
+      - name: Clean Buildozer cache
+        shell: bash
+        run: |
+          rm -rf .buildozer
+          rm -rf bin
+
       - name: Build APK
+        shell: bash
         env:
           APP_ANDROID_ACCEPT_SDK_LICENSE: "1"
+          ANDROID_ACCEPT_SDK_LICENSE: "1"
         run: |
-          export PATH=$PATH:~/.local/bin/
+          set -eux
+
+          export JAVA_HOME="${JAVA_HOME_17_X64:-$JAVA_HOME}"
+
+          export ANDROID_SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
+          export ANDROID_HOME="$ANDROID_SDK_ROOT"
+
+          export PATH="$ANDROID_SDK_ROOT/tools/bin:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
+
+          echo "===== FINAL ENVIRONMENT ====="
+          echo "JAVA_HOME=$JAVA_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+
+          echo "===== JAVA ====="
+          java -version
+
+          echo "===== SDKMANAGER ====="
+          "$ANDROID_SDK_ROOT/tools/bin/sdkmanager" --version
+
+          echo "===== BUILD TOOLS ====="
+          find "$ANDROID_SDK_ROOT/build-tools" -maxdepth 1 -type d -print
+
+          echo "===== BUILD ====="
           buildozer android debug
 
       - name: Upload APK
@@ -64,4 +206,5 @@ jobs:
         with:
           name: StockKeeper-APK
           path: bin/*.apk
+          if-no-files-found: error
           retention-days: 30
