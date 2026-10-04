@@ -66,7 +66,7 @@ jobs:
 
 
       # ==========================================
-      # 5. Python packages
+      # 5. Install Buildozer + Cython
       # ==========================================
       - name: Install Buildozer and Cython
         run: |
@@ -96,21 +96,12 @@ jobs:
 
           unzip -q commandlinetools.zip
 
-          # Android's required layout:
-          #
-          # android-sdk/
-          #   cmdline-tools/
-          #     latest/
-          #       bin/
-          #       lib/
-          #
           rm -rf "$SDK/cmdline-tools/latest"
 
           mv cmdline-tools "$SDK/cmdline-tools/latest"
 
           chmod +x "$SDK/cmdline-tools/latest/bin/"*
 
-          # Environment variables
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
 
@@ -125,16 +116,12 @@ jobs:
           echo "$SDK"
 
           echo
-          echo "Directory:"
-          find "$SDK/cmdline-tools/latest" -maxdepth 2 -type f | head -50
-
-          echo
           echo "SDKMANAGER:"
           "$SDK/cmdline-tools/latest/bin/sdkmanager" --version
 
 
       # ==========================================
-      # 7. Android licenses
+      # 7. Accept Android licenses
       # ==========================================
       - name: Accept Android SDK licenses
         shell: bash
@@ -177,7 +164,7 @@ jobs:
           echo "INSTALL SDK PACKAGES"
           echo "================================"
 
-          yes | sdkmanager \
+          sdkmanager \
             "platform-tools" \
             "platforms;android-34" \
             "build-tools;34.0.0" \
@@ -235,7 +222,7 @@ jobs:
 
 
       # ==========================================
-      # 10. Prepare application
+      # 10. Prepare StockKeeper
       # ==========================================
       - name: Prepare StockKeeper
         shell: bash
@@ -259,7 +246,7 @@ jobs:
 
 
       # ==========================================
-      # 11. Check Java
+      # 11. Verify Java
       # ==========================================
       - name: Verify Java
         shell: bash
@@ -276,7 +263,7 @@ jobs:
 
 
       # ==========================================
-      # 12. Clean old Buildozer files
+      # 12. Clean Buildozer
       # ==========================================
       - name: Clean Buildozer
         shell: bash
