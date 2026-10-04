@@ -28,23 +28,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            git \
-            zip \
-            unzip \
-            wget \
-            curl \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            zlib1g-dev \
-            libncurses5-dev \
-            libncursesw5-dev \
-            libtinfo5 \
-            cmake \
-            libffi-dev \
-            libssl-dev
+          sudo apt-get install -y git zip unzip wget curl autoconf automake libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
 
       - name: Install Buildozer and Cython
         run: |
@@ -74,15 +58,13 @@ jobs:
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
           echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$SDK/tools/bin" >> "$GITHUB_PATH"
-          echo "===== SDKMANAGER VERSION ====="
-          "$SDK/tools/bin/sdkmanager" --version
 
       - name: Accept Android licenses
         shell: bash
         run: |
           set -eux
           SDK="$HOME/.buildozer/android/platform/android-sdk"
-          yes | "$SDK/tools/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          (yes || true) | "$SDK/tools/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
           mkdir -p "$SDK/licenses"
           echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > "$SDK/licenses/android-sdk-license"
           echo "84831b9409646a918e30573bab4c9c91346d8abd" > "$SDK/licenses/android-sdk-preview-license"
@@ -94,8 +76,7 @@ jobs:
         run: |
           set -eux
           SDK="$HOME/.buildozer/android/platform/android-sdk"
-          yes | "$SDK/tools/bin/sdkmanager" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-          echo "===== INSTALLED ====="
+          (yes || true) | "$SDK/tools/bin/sdkmanager" "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
           ls -la "$SDK/platforms" "$SDK/build-tools" || true
 
       - name: Prepare application
@@ -106,15 +87,6 @@ jobs:
             cp StockKeeper.py main.py
           fi
           test -f main.py
-          ls -la
-
-      - name: Verify Java
-        shell: bash
-        run: |
-          set -eux
-          echo "JAVA_HOME=$JAVA_HOME"
-          java -version
-          javac -version
 
       - name: Clean Buildozer cache
         shell: bash
@@ -133,11 +105,7 @@ jobs:
           export ANDROID_SDK_ROOT="$SDK"
           export ANDROID_HOME="$SDK"
           export PATH="$SDK/tools/bin:$SDK/cmdline-tools/latest/bin:$SDK/platform-tools:$PATH"
-          echo "===== FINAL ENVIRONMENT ====="
-          echo "JAVA_HOME=$JAVA_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
           java -version
-          echo "===== BUILD ====="
           buildozer android debug
 
       - name: Upload APK
