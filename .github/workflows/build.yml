@@ -8,21 +8,27 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
-    container:
-      image: kivy/buildozer:latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Rename StockKeeper.py to main.py
-        run: |
-          if [ -f StockKeeper.py ]; then
-            cp StockKeeper.py main.py
-          fi
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Accept Android SDK licenses
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+
+      - name: Install Buildozer
+        run: |
+          pip3 install --user --upgrade buildozer cython
+
+      - name: Accept SDK licenses
         run: |
           mkdir -p ~/.buildozer/android/platform/android-sdk/licenses
           echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
@@ -31,8 +37,17 @@ jobs:
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
 
-      - name: Build APK
+      - name: Rename StockKeeper.py to main.py
         run: |
+          if [ -f StockKeeper.py ]; then
+            cp StockKeeper.py main.py
+          fi
+
+      - name: Build APK
+        env:
+          APP_ANDROID_ACCEPT_SDK_LICENSE: "1"
+        run: |
+          export PATH=$PATH:~/.local/bin/
           buildozer android debug
 
       - name: Upload APK
