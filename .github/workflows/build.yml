@@ -11,29 +11,47 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout
+
+      # ==========================================
+      # 1. Checkout
+      # ==========================================
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+
+      # ==========================================
+      # 2. Java 17
+      # ==========================================
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
+
+      # ==========================================
+      # 3. Python 3.11
+      # ==========================================
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
+
+      # ==========================================
+      # 4. System dependencies
+      # ==========================================
       - name: Install system dependencies
         run: |
           sudo apt-get update
+
           sudo apt-get install -y \
             git \
-            zip \
-            unzip \
             wget \
             curl \
+            unzip \
+            zip \
+            openjdk-17-jdk \
             autoconf \
             automake \
             libtool \
@@ -46,11 +64,19 @@ jobs:
             libffi-dev \
             libssl-dev
 
+
+      # ==========================================
+      # 5. Python packages
+      # ==========================================
       - name: Install Buildozer and Cython
         run: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade buildozer cython
 
+
+      # ==========================================
+      # 6. Setup Android SDK
+      # ==========================================
       - name: Setup Android SDK
         shell: bash
         run: |
@@ -63,45 +89,63 @@ jobs:
           cd /tmp
 
           wget -q \
-            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+            "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" \
             -O commandlinetools.zip
+
+          rm -rf cmdline-tools
 
           unzip -q commandlinetools.zip
 
+          # Android's required layout:
+          #
+          # android-sdk/
+          #   cmdline-tools/
+          #     latest/
+          #       bin/
+          #       lib/
+          #
           rm -rf "$SDK/cmdline-tools/latest"
 
           mv cmdline-tools "$SDK/cmdline-tools/latest"
 
           chmod +x "$SDK/cmdline-tools/latest/bin/"*
 
-          # Environment
+          # Environment variables
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
 
           echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$SDK/platform-tools" >> "$GITHUB_PATH"
 
-          # Compatibility with Buildozer versions that still expect tools/bin
-          mkdir -p "$SDK/tools"
+          echo "================================"
+          echo "ANDROID SDK"
+          echo "================================"
 
-          ln -sfn \
-            "$SDK/cmdline-tools/latest/bin" \
-            "$SDK/tools/bin"
+          echo "SDK:"
+          echo "$SDK"
 
-          echo "===== SDK STRUCTURE ====="
-          ls -la "$SDK"
-          ls -la "$SDK/tools"
-          ls -la "$SDK/tools/bin"
+          echo
+          echo "Directory:"
+          find "$SDK/cmdline-tools/latest" -maxdepth 2 -type f | head -50
 
-          echo "===== SDKMANAGER ====="
-          "$SDK/tools/bin/sdkmanager" --version
+          echo
+          echo "SDKMANAGER:"
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --version
 
-      - name: Accept Android licenses
+
+      # ==========================================
+      # 7. Android licenses
+      # ==========================================
+      - name: Accept Android SDK licenses
         shell: bash
         run: |
           set -eux
 
-          yes | sdkmanager --licenses >/dev/null || true
+          mkdir -p "$HOME/.android"
+
+          touch "$HOME/.android/repositories.cfg"
+
+          yes | sdkmanager --licenses || true
 
           mkdir -p "$ANDROID_SDK_ROOT/licenses"
 
@@ -111,18 +155,27 @@ jobs:
           echo "84831b9409646a918e30573bab4c9c91346d8abd" \
             > "$ANDROID_SDK_ROOT/licenses/android-sdk-preview-license"
 
-          mkdir -p "$HOME/.android"
-          touch "$HOME/.android/repositories.cfg"
 
+      # ==========================================
+      # 8. Install Android SDK packages
+      # ==========================================
       - name: Install Android SDK packages
         shell: bash
         run: |
           set -eux
 
-          echo "===== AVAILABLE SDK ====="
-          sdkmanager --list | head -100
+          echo "================================"
+          echo "SDKMANAGER LIST"
+          echo "================================"
 
-          echo "===== INSTALL PACKAGES ====="
+          sdkmanager --list > /tmp/sdk-list.txt
+
+          head -100 /tmp/sdk-list.txt
+
+          echo
+          echo "================================"
+          echo "INSTALL SDK PACKAGES"
+          echo "================================"
 
           yes | sdkmanager \
             "platform-tools" \
@@ -130,47 +183,114 @@ jobs:
             "build-tools;34.0.0" \
             "ndk;25.2.9519653"
 
-          echo "===== INSTALLED PACKAGES ====="
 
-          sdkmanager --list_installed
-
-          echo "===== BUILD TOOLS ====="
-          ls -la "$ANDROID_SDK_ROOT/build-tools"
-
-          echo "===== PLATFORM ====="
-          ls -la "$ANDROID_SDK_ROOT/platforms"
-
-      - name: Prepare application
+      # ==========================================
+      # 9. Verify Android SDK
+      # ==========================================
+      - name: Verify Android SDK
         shell: bash
         run: |
           set -eux
 
-          if [ -f StockKeeper.py ]; then
-            cp StockKeeper.py main.py
+          echo "================================"
+          echo "SDKMANAGER VERSION"
+          echo "================================"
+
+          sdkmanager --version
+
+          echo
+          echo "================================"
+          echo "INSTALLED PACKAGES"
+          echo "================================"
+
+          sdkmanager --list_installed
+
+          echo
+          echo "================================"
+          echo "BUILD TOOLS"
+          echo "================================"
+
+          ls -la "$ANDROID_SDK_ROOT/build-tools"
+
+          echo
+          echo "================================"
+          echo "ANDROID PLATFORM"
+          echo "================================"
+
+          ls -la "$ANDROID_SDK_ROOT/platforms"
+
+          echo
+          echo "================================"
+          echo "PLATFORM TOOLS"
+          echo "================================"
+
+          ls -la "$ANDROID_SDK_ROOT/platform-tools"
+
+          echo
+          echo "================================"
+          echo "NDK"
+          echo "================================"
+
+          ls -la "$ANDROID_SDK_ROOT/ndk"
+
+
+      # ==========================================
+      # 10. Prepare application
+      # ==========================================
+      - name: Prepare StockKeeper
+        shell: bash
+        run: |
+          set -eux
+
+          if [ -f "StockKeeper.py" ]; then
+            cp "StockKeeper.py" "main.py"
           fi
 
-          test -f main.py
+          if [ ! -f "main.py" ]; then
+            echo "ERROR: main.py not found"
+            exit 1
+          fi
 
-          echo "===== PROJECT ====="
+          echo "================================"
+          echo "PROJECT FILES"
+          echo "================================"
+
           ls -la
 
+
+      # ==========================================
+      # 11. Check Java
+      # ==========================================
       - name: Verify Java
         shell: bash
         run: |
           set -eux
 
+          export JAVA_HOME="${JAVA_HOME_17_X64:-$JAVA_HOME}"
+
           echo "JAVA_HOME=$JAVA_HOME"
 
           java -version
+
           javac -version
 
-      - name: Clean Buildozer cache
+
+      # ==========================================
+      # 12. Clean old Buildozer files
+      # ==========================================
+      - name: Clean Buildozer
         shell: bash
         run: |
+          set -eux
+
           rm -rf .buildozer
           rm -rf bin
 
-      - name: Build APK
+
+      # ==========================================
+      # 13. Build APK
+      # ==========================================
+      - name: Build StockKeeper APK
         shell: bash
         env:
           APP_ANDROID_ACCEPT_SDK_LICENSE: "1"
@@ -183,24 +303,38 @@ jobs:
           export ANDROID_SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
           export ANDROID_HOME="$ANDROID_SDK_ROOT"
 
-          export PATH="$ANDROID_SDK_ROOT/tools/bin:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
 
-          echo "===== FINAL ENVIRONMENT ====="
+          echo "================================"
+          echo "FINAL ENVIRONMENT"
+          echo "================================"
+
           echo "JAVA_HOME=$JAVA_HOME"
+          echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
 
-          echo "===== JAVA ====="
+          echo
+          echo "JAVA:"
           java -version
 
-          echo "===== SDKMANAGER ====="
-          "$ANDROID_SDK_ROOT/tools/bin/sdkmanager" --version
+          echo
+          echo "SDKMANAGER:"
+          sdkmanager --version
 
-          echo "===== BUILD TOOLS ====="
-          find "$ANDROID_SDK_ROOT/build-tools" -maxdepth 1 -type d -print
+          echo
+          echo "BUILD TOOLS:"
+          ls -la "$ANDROID_SDK_ROOT/build-tools"
 
-          echo "===== BUILD ====="
+          echo
+          echo "BUILD"
+          echo "================================"
+
           buildozer android debug
 
+
+      # ==========================================
+      # 14. Upload APK
+      # ==========================================
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
