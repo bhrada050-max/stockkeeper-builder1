@@ -25,7 +25,7 @@ jobs:
 
       - name: Build APK
         env:
-          APP_ANDROID_ACCEPT_SDK_LICENSE: 1
+          APP_ANDROID_ACCEPT_SDK_LICENSE: "1"
         run: |
           buildozer android debug
 
