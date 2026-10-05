@@ -41,11 +41,27 @@ jobs:
           test -f main.py
           test -f buildozer.spec
 
+      - name: Check files and syntax
+        run: |
+          echo "--- files in repo root ---"
+          ls -la
+          test -f Vazirmatn-Regular.ttf || echo "WARNING: Vazirmatn-Regular.ttf not found in repo root"
+          python -m py_compile main.py
+          echo "Syntax OK"
+
       - name: Build APK
         run: |
           set -o pipefail
           rm -rf .buildozer bin
-          buildozer -v android debug 2>&1 | tee build.log
+          yes | buildozer -v android debug 2>&1 | tee build.log
+
+      - name: Show error summary
+        if: failure()
+        run: |
+          echo "-------- error lines --------"
+          grep -n -i -E "traceback|error|exception|FAILURE" build.log | tail -40 || true
+          echo "-------- last 80 lines --------"
+          tail -80 build.log || true
 
       - name: Upload log
         if: always()
@@ -53,6 +69,7 @@ jobs:
         with:
           name: build-log
           path: build.log
+          if-no-files-found: ignore
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
