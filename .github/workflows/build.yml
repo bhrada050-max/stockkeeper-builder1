@@ -45,7 +45,7 @@ jobs:
         run: |
           set -o pipefail
           rm -rf .buildozer bin
-          yes | buildozer -v android debug 2>&1 | tee build.log
+          buildozer -v android debug 2>&1 | tee build.log
 
       - name: Upload log
         if: always()
