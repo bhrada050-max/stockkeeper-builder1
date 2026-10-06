@@ -15,11 +15,42 @@ from kivy.uix.popup import Popup
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
 
-FONT_PATH = "Vazirmatn-Regular.ttf"
-FONT_NAME = FONT_PATH if os.path.exists(FONT_PATH) else "Roboto"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# 1) next to this file (works in the APK and in Pydroid)
+# 2) Download folder (Pydroid fallback)
+FONT_CANDIDATES = [
+    os.path.join(BASE_DIR, "Vazirmatn-Regular.ttf"),
+    "Vazirmatn-Regular.ttf",
+    "/storage/emulated/0/Download/Vazirmatn-Regular.ttf",
+]
+
+FONT_NAME = "Roboto"
+for _path in FONT_CANDIDATES:
+    if os.path.exists(_path):
+        FONT_NAME = _path
+        break
+
+# ---------------------------------------------------------------------------
+# Persian/Arabic text fix for Kivy on Pydroid 3
+#
+# The Kivy text renderer on Pydroid 3 does NOT do Arabic shaping or
+# bidirectional ordering, so Persian shows up reversed and/or with
+# disconnected letters. rtl_text() converts normal (logical) Persian text
+# into the "visual" form this renderer needs:
+#   1) letters are joined (isolated/initial/medial/final forms)
+#   2) the line is reordered right-to-left, numbers/English stay left-to-right
+#
+# Use rtl_text() ONLY when putting text on screen. Keep stored data
+# (product names, etc.) in normal order.
+#
+# If your device ever shows the text correctly WITHOUT this fix, set
+# FIX_PERSIAN_TEXT = False
+# ---------------------------------------------------------------------------
 FIX_PERSIAN_TEXT = True
 
+# char: (isolated, final) for right-joining letters,
+#       (isolated, final, initial, medial) for dual-joining letters
 _AR_FORMS = {
     "\u0621": (0xFE80,),
     "\u0622": (0xFE81, 0xFE82),
@@ -167,6 +198,7 @@ def _ar_reshape(text):
 def _ar_visual_line(line):
     shaped = _ar_reshape(line)
 
+    # group base char + its combining marks into clusters
     clusters = []
     for ch in shaped:
         if _ar_is_mark(ch) and clusters:
@@ -188,6 +220,7 @@ def _ar_visual_line(line):
 
     count = len(clusters)
 
+    # % and $ stuck to a number stay with the number
     for i in range(count):
         if types[i] == "N" and clusters[i][0] in "%$\u066A":
             before = i > 0 and clusters[i - 1][0].isdigit()
@@ -195,6 +228,7 @@ def _ar_visual_line(line):
             if before or after:
                 types[i] = "L"
 
+    # neutrals: between two LTR items they are LTR, otherwise RTL
     resolved = list(types)
     for i in range(count):
         if types[i] != "N":
@@ -215,6 +249,7 @@ def _ar_visual_line(line):
             j += 1
         resolved[i] = "L" if (left == "L" and right == "L") else "R"
 
+    # split into runs
     runs = []
     for cl, t in zip(clusters, resolved):
         if runs and runs[-1][0] == t:
@@ -243,6 +278,15 @@ def rtl_text(value):
 
 
 class PersianInput(TextInput):
+    """
+    TextInput for Persian typing on Pydroid.
+
+    Kivy draws typed text left-to-right without joining letters. This input
+    keeps what you typed in normal order in `.logical` (use that to READ the
+    value) and shows the fixed visual form on screen.
+    Typing always goes to the end; use backspace to correct mistakes.
+    """
+
     logical = StringProperty("")
 
     def __init__(self, **kwargs):
@@ -311,6 +355,9 @@ class StockKeeper(App):
         self.show_page("products")
         return self.root
 
+    # -----------------------------
+    # Theme / colors
+    # -----------------------------
     def colors(self):
         if self.dark_mode:
             return {
@@ -356,7 +403,329 @@ class StockKeeper(App):
 
         self.update_nav_theme()
 
-    def make_label(self, text="", size=16, color=None, bold=False, halign="left", valign="middle"):
+    # -----------------------------
+    # Basic widget helpers
+    # -----------------------------
+    def make_label(
+        self,
+        text="",
+        size=16,
+        color=None,
+        bold=False,
+        halign="left",
+        valign="middle"
+    ):
+        c = self.colors()
+
+        if halign == "left" and has_persian(text):
+            halign = "right"
+
+        label = Label(
+            text=rtl_text(text),
+            font_size=dp(size),
+            color=color if color else c["text"],
+            bold=bold,
+            halign=halign,
+            valign=valign,
+            font_name=FONT_NAME
+        )
+
+        label.bind(
+            size=lambda obj, value: setattr(
+                obj, "text_size", (obj.width - dp(4), None)
+            )
+        )
+
+        return label
+
+    def make_button(
+        self,
+        text,
+        callback=None,
+        bg=None,
+        height=46,
+        font_size=14
+    ):
+        c = self.colors()
+
+        button = Button(
+            text=rtl_text(text),
+            size_hint_y=None,
+            height=dp(height),
+            font_size=dp(font_size),
+            color=c["text"],
+            background_normal="",
+            background_down="",
+            background_color=bg if bg else c["panel2"],
+            font_name=FONT_NAME
+        )
+
+        if callback:
+            button.bind(on_release=callback)
+
+        return button
+
+    def make_text_input(
+        self,
+        hint,
+        multiline=False,
+        input_filter=None,
+        persian=False
+    ):
+        c = self.colors()
+
+        field = (PersianInput if persian else TextInput)(
+            hint_text=rtl_text(hint),
+            multiline=multiline,
+            size_hint_y=None,
+            height=dp(50),
+            font_size=dp(16),
+            foreground_color=c["text"],
+            hint_text_color=c["muted"],
+            background_color=c["input"],
+            padding=[dp(12), dp(12)],
+            cursor_color=c["text"],
+            font_name=FONT_NAME
+        )
+
+        if input_filter:
+            field.input_filter = input_filter
+
+        return field
+
+    # -----------------------------
+    # Product card background
+    # -----------------------------
+    def add_card_background(self, widget):
+        c = self.colors()
+
+        with widget.canvas.before:
+            Color(*c["panel"])
+            widget._card_rect = RoundedRectangle(
+                pos=widget.pos,
+                size=widget.size,
+                radius=[dp(10)]
+            )
+
+            Color(*c["border"])
+            widget._card_line = Line(
+                rounded_rectangle=(
+                    widget.x,
+                    widget.y,
+                    widget.width,
+                    widget.height,
+                    dp(10)
+                ),
+                width=1.2
+            )
+
+        def update_card(*_):
+            widget._card_rect.pos = widget.pos
+            widget._card_rect.size = widget.size
+            widget._card_line.rounded_rectangle = (
+                widget.x,
+                widget.y,
+                widget.width,
+                widget.height,
+                dp(10)
+            )
+
+        widget.bind(pos=update_card, size=update_card)
+
+    # -----------------------------
+    # Header
+    # -----------------------------
+    def make_header(self, title):
+        c = self.colors()
+
+        header = BoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(55),
+            spacing=dp(8)
+        )
+
+        title_label = self.make_label(
+            title,
+            size=22,
+            bold=True
+        )
+        header.add_widget(title_label)
+
+        theme_text = "روشن" if self.dark_mode else "تیره"
+
+        theme_button = self.make_button(
+            theme_text,
+            self.change_theme,
+            bg=c["blue"],
+            height=42,
+            font_size=12
+        )
+        theme_button.size_hint_x = None
+        theme_button.width = dp(78)
+
+        header.add_widget(theme_button)
+
+        return header
+
+    # -----------------------------
+    # Bottom navigation
+    # -----------------------------
+    def make_bottom_nav(self):
+        c = self.colors()
+
+        nav = BoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(58),
+            spacing=dp(6)
+        )
+
+        self.nav_products = self.make_button(
+            "محصولات",
+            lambda *_: self.show_page("products"),
+            bg=c["panel2"],
+            height=52
+        )
+
+        self.nav_create = self.make_button(
+            "افزودن",
+            lambda *_: self.show_page("create"),
+            bg=c["panel2"],
+            height=52
+        )
+
+        self.nav_alerts = self.make_button(
+            "هشدارها",
+            lambda *_: self.show_page("alerts"),
+            bg=c["panel2"],
+            height=52
+        )
+
+        nav.add_widget(self.nav_products)
+        nav.add_widget(self.nav_create)
+        nav.add_widget(self.nav_alerts)
+
+        return nav
+
+    def update_nav_theme(self):
+        if not hasattr(self, "bottom_nav"):
+            return
+
+        c = self.colors()
+
+        self.nav_products.background_color = (
+            c["green"] if self.current_page == "products"
+            else c["panel2"]
+        )
+
+        self.nav_create.background_color = (
+            c["green"] if self.current_page == "create"
+            else c["panel2"]
+        )
+
+        self.nav_alerts.background_color = (
+            c["red"] if self.current_page == "alerts"
+            else c["panel2"]
+        )
+
+        self.nav_products.color = c["text"]
+        self.nav_create.color = c["text"]
+        self.nav_alerts.color = c["text"]
+
+    # -----------------------------
+    # Page handling
+    # -----------------------------
+    def show_page(self, page):
+        self.current_page = page
+        self.main_area.clear_widgets()
+
+        if page == "products":
+            self.products_page()
+        elif page == "create":
+            self.create_page()
+        elif page == "alerts":
+            self.alerts_page()
+
+        self.update_nav_theme()
+
+    # -----------------------------
+    # PRODUCTS PAGE
+    # -----------------------------
+    def products_page(self):
+        self.current_page = "products"
+        self.main_area.clear_widgets()
+        c = self.colors()
+
+        self.main_area.add_widget(
+            self.make_header("مدیریت موجودی")
+        )
+
+        self.search_input = PersianInput(
+            hint_text=rtl_text("جستجوی محصولات..."),
+            multiline=False,
+            size_hint_y=None,
+            height=dp(50),
+            font_size=dp(16),
+            foreground_color=c["text"],
+            hint_text_color=c["muted"],
+            background_color=c["input"],
+            padding=[dp(12), dp(12)],
+            cursor_color=c["text"],
+            font_name=FONT_NAME
+        )
+
+        self.search_input.bind(
+            logical=self.search_changed
+        )
+
+        self.main_area.add_widget(self.search_input)
+
+        self.product_scroll = ScrollView(
+            do_scroll_x=False,
+            bar_width=dp(4)
+        )
+
+        self.product_list = GridLayout(
+            cols=1,
+            spacing=dp(10),
+            padding=[dp(1), dp(5), dp(1), dp(10)],
+            size_hint_y=None
+        )
+
+        self.product_list.bind(
+            minimum_height=self.product_list.setter("height")
+        )
+
+        self.product_scroll.add_widget(self.product_list)
+        self.main_area.add_widget(self.product_scroll)
+
+        self.refresh_products()
+
+    def search_changed(self, instance, value):
+        self.refresh_products(value)
+
+    def refresh_products(self, search_text=None):
+        if not hasattr(self, "product_list"):
+            return
+
+        self.product_list.clear_widgets()
+
+        c = self.colors()
+
+        if search_text is None:
+            search_widget = getattr(
+                self,
+                "search_input",
+                None
+            )
+            search_text = (
+                search_widget.logical
+                if search_widget
+                else ""
+            )
+
+        search_text = search_text.sn="middle"):
         c = self.colors()
 
         if halign == "left" and has_persian(text):
