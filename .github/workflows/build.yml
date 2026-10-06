@@ -53,7 +53,7 @@ jobs:
         run: |
           set -o pipefail
           rm -rf .buildozer bin
-          yes | buildozer -v android debug 2>&1 | tee build.log
+          (yes || true) | buildozer -v android debug 2>&1 | tee build.log
 
       - name: Show error summary
         if: failure()
