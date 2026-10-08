@@ -5,7 +5,7 @@ package.domain = org.mystore
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json,ttf
 version = 1.0.0
-requirements = python3==3.11.5,hostpython3==3.11.5,kivy==2.3.0
+requirements = python3==3.11.5,hostpython3==3.11.5,kivy==2.3.0,certifi
 orientation = portrait
 fullscreen = 0
 
@@ -15,6 +15,7 @@ android.ndk = 25b
 android.archs = arm64-v8a
 android.allow_backup = True
 android.accept_sdk_license = True
+android.permissions = INTERNET
 
 p4a.branch = v2024.01.21
 
