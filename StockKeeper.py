@@ -19,15 +19,29 @@ from rtl_fix import *
 from sk_part_a import PartA
 from sk_part_b import PartB
 from sk_part_c import PartC
+from maintenance import start_maintenance_check
 
 
 class StockKeeper(PartA, PartB, PartC, App):
-    pass
+    def on_start(self):
+        # remote "under maintenance" check (reads status.json from GitHub)
+        start_maintenance_check(self)
+
+    def on_pause(self):
+        # keep the app alive in the background so on_resume can run
+        return True
+
+    def on_resume(self):
+        start_maintenance_check(self)
 
 
+# ---------------------------------------------------------------------------
+# Crash viewer: instead of the app closing silently, show the error on screen
+# (and save it to crash_log.txt inside the app's data folder).
+# ---------------------------------------------------------------------------
 def _save_crash(text):
     try:
-        folder = App.get_running_app().user_data_dir if App.get_running_app() else os.path.expanduser("~")
+        folder = App.get_running_app().user_data_dir if App.get_running_app() else BASE_DIR
         with open(os.path.join(folder, "crash_log.txt"), "w", encoding="utf-8") as f:
             f.write(text)
     except Exception:
@@ -82,8 +96,6 @@ def _install_crash_handler():
 
 
 class CrashApp(App):
-    crash_text = ""
-
     def build(self):
         box = BoxLayout(orientation="vertical", padding=dp(8), spacing=dp(8))
         box.add_widget(
