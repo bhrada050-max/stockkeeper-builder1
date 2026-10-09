@@ -250,7 +250,8 @@ class PartC:
                     "purchase_price": purchase,
                     "sale_price": sale,
                     "low": low,
-                    "desc": str(item.get("desc", "") or "").strip()
+                    "desc": str(item.get("desc", "") or "").strip(),
+                    "date": str(item.get("date", "") or "").strip()
                 })
 
             self.products = clean
@@ -374,4 +375,4 @@ class PartC:
             self.message(
                 "خطا",
                 "بازگردانی نشد:\n%s" % str(e)
-                                             )
+        )
