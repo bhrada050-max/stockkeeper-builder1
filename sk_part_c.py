@@ -295,3 +295,83 @@ class PartC:
             return float(value)
         except (ValueError, TypeError):
             return 0.0
+
+    # -----------------------------
+    # Backup / Export / Import
+    # -----------------------------
+    def export_data(self, *_):
+        try:
+            download_dir = "/storage/emulated/0/Download"
+            if os.path.exists(download_dir):
+                export_path = os.path.join(
+                    download_dir,
+                    "stockkeeper_backup.json"
+                )
+            else:
+                export_path = os.path.join(
+                    self.user_data_dir,
+                    "stockkeeper_backup.json"
+                )
+
+            with open(export_path, "w", encoding="utf-8") as file:
+                json.dump(
+                    self.products,
+                    file,
+                    ensure_ascii=False,
+                    indent=2
+                )
+
+            self.message(
+                "موفق",
+                "فایل پشتیبان ذخیره شد:\n%s" % export_path
+            )
+        except Exception as e:
+            self.message(
+                "خطا",
+                "ذخیره نشد:\n%s" % str(e)
+            )
+
+    def import_data(self, *_):
+        try:
+            download_dir = "/storage/emulated/0/Download"
+            import_path = os.path.join(
+                download_dir,
+                "stockkeeper_backup.json"
+            )
+
+            if not os.path.exists(import_path):
+                import_path = os.path.join(
+                    self.user_data_dir,
+                    "stockkeeper_backup.json"
+                )
+
+            if not os.path.exists(import_path):
+                self.message(
+                    "خطا",
+                    "فایل پشتیبان پیدا نشد."
+                )
+                return
+
+            with open(import_path, "r", encoding="utf-8") as file:
+                data = json.load(file)
+
+            if not isinstance(data, list):
+                self.message("خطا", "فایل خراب است.")
+                return
+
+            self.products = data
+            self.save_data()
+            self.message(
+                "موفق",
+                "بازگردانی انجام شد.\nتعداد: %d" % len(self.products)
+            )
+
+            if self.current_page == "settings":
+                self.settings_page()
+            elif self.current_page == "products":
+                self.refresh_products()
+        except Exception as e:
+            self.message(
+                "خطا",
+                "بازگردانی نشد:\n%s" % str(e)
+                                             )
