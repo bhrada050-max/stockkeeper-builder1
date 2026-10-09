@@ -3,6 +3,9 @@ name: Build StockKeeper APK
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'status.json'
+      - 'README.md'
   workflow_dispatch:
 
 jobs:
@@ -58,10 +61,15 @@ jobs:
       - name: Show error summary
         if: failure()
         run: |
-          echo "-------- error lines --------"
-          grep -n -i -E "traceback|error|exception|FAILURE" build.log | tail -40 || true
-          echo "-------- last 80 lines --------"
-          tail -80 build.log || true
+          echo "-------- the lines BEFORE the failure (this is the real error) --------"
+          L=$(grep -a -n "^Command failed" build.log | head -1 | cut -d: -f1)
+          if [ -n "$L" ]; then
+            START=$((L-120))
+            [ "$START" -lt 1 ] && START=1
+            sed -n "${START},${L}p" build.log | sed 's/\x1b\[[0-9;]*m//g' | cut -c1-300
+          else
+            tail -80 build.log | sed 's/\x1b\[[0-9;]*m//g' | cut -c1-300
+          fi
 
       - name: Upload log
         if: always()
