@@ -63,18 +63,26 @@ class PartB:
 
         purchase = self.safe_float(product.get("purchase_price", 0))
         sale = self.safe_float(product.get("sale_price", 0))
+        date = str(product.get("date", "") or "").strip()
 
-        info = self.make_label(
+        info_text = (
             "قیمت خرید: %.2f\n"
             "قیمت فروش: %.2f\n"
             "تعداد: %d\n"
             "حد هشدار: %d"
-            % (purchase, sale, qty, low),
+            % (purchase, sale, qty, low)
+        )
+
+        if date:
+            info_text += "\nتاریخ: " + date
+
+        info = self.make_label(
+            info_text,
             size=13,
             color=c["muted"]
         )
         info.size_hint_y = None
-        info.height = dp(82)
+        info.height = dp(105)
         card.add_widget(info)
 
         desc = str(product.get("desc", "") or "").strip()
@@ -86,7 +94,7 @@ class PartB:
             )
 
             def fit_card(*_args, lbl=desc_label):
-                card.height = dp(190) + lbl.height + dp(3)
+                card.height = dp(210) + lbl.height + dp(3)
 
             desc_label.bind(height=fit_card)
             fit_card()
@@ -139,6 +147,11 @@ class PartB:
         form.add_widget(self.sale_input)
         form.add_widget(self.low_input)
 
+        self.date_input = self.make_text_input(
+            "تاریخ (مثلاً 1405.8.18)"
+        )
+        form.add_widget(self.date_input)
+
         self.desc_input = self.make_text_input(
             "توضیحات (اگر داری بنویس)",
             persian=True
@@ -157,7 +170,7 @@ class PartB:
         form.add_widget(self.desc_preview)
 
         note = self.make_label(
-            "وارد کردن قیمت‌ها اختیاری است.",
+            "وارد کردن قیمت‌ها و تاریخ اختیاری است.",
             size=12,
             color=c["muted"]
         )
@@ -182,6 +195,7 @@ class PartB:
     def save_product(self, *_):
         name = self.name_input.logical.strip()
         desc = self.desc_input.logical.strip()
+        date = self.date_input.text.strip()
 
         if not name:
             self.message("خطا", "نام محصول الزامی است.")
@@ -215,7 +229,8 @@ class PartB:
             "purchase_price": purchase,
             "sale_price": sale,
             "low": low,
-            "desc": desc
+            "desc": desc,
+            "date": date
         }
 
         self.products.append(product)
@@ -267,6 +282,10 @@ class PartB:
         form.add_widget(sale_input)
         form.add_widget(low_input)
 
+        date_input = self.make_text_input("تاریخ (مثلاً 1405.8.18)")
+        date_input.text = str(product.get("date", "") or "")
+        form.add_widget(date_input)
+
         desc_input = self.make_text_input("توضیحات (اگر داری بنویس)", persian=True)
         desc_input.set_logical(product.get("desc", ""))
         form.add_widget(desc_input)
@@ -304,7 +323,7 @@ class PartB:
         popup = Popup(
             title=rtl_text("ویرایش محصول"),
             content=content,
-            size_hint=(0.94, 0.82),
+            size_hint=(0.94, 0.86),
             auto_dismiss=False,
             title_size=dp(18)
         )
@@ -326,6 +345,246 @@ class PartB:
 
             try:
                 new_qty = int(qty_text)
+                new_low = int(low_text)
+                new_purchase = float(purchase_text) if purchase_text else 0.0
+                new_sale = float(sale_text) if sale_text else 0.0
+                if new_qty < 0 or new_low < 0 or new_purchase < 0 or new_sale < 0:
+                    raise ValueError
+            except (ValueError, TypeError):
+                self.message("خطا", "لطفاً اعداد معتبر وارد کنید.")
+                return
+
+            product["name"] = new_name
+            product["qty"] = new_qty
+            product["purchase_price"] = new_purchase
+            product["sale_price"] = new_sale
+            product["low"] = new_low
+            product["desc"] = desc_input.logical.strip()
+            product["date"] = date_input.text.strip()
+
+            self.save_data()
+            popup.dismiss()
+            self.refresh_products()
+
+        def delete_product(*_):
+            self.confirm_delete(index, popup)
+
+        save_button.bind(on_release=save_changes)
+        delete_button.bind(on_release=delete_product)
+        close_button.bind(on_release=popup.dismiss)
+
+        popup.open()
+
+    def confirm_delete(self, index, edit_popup):
+        if index < 0 or index >= len(self.products):
+            return
+
+        c = self.colors()
+
+        content = BoxLayout(
+            orientation="vertical",
+            spacing=dp(12),
+            padding=[dp(12), dp(12), dp(12), dp(12)]
+        )
+
+        label = self.make_label(
+            "این محصول حذف شود؟",
+            size=16,
+            halign="center"
+        )
+        content.add_widget(label)
+
+        buttons = BoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(48),
+            spacing=dp(7)
+        )
+
+        yes = self.make_button("حذف", bg=c["red"], height=46)
+        no = self.make_button("لغو", bg=c["panel2"], height=46)
+
+        buttons.add_widget(yes)
+        buttons.add_widget(no)
+        content.add_widget(buttons)
+
+        popup = Popup(
+            title=rtl_text("تأیید حذف"),
+            content=content,
+            size_hint=(0.88, 0.38),
+            auto_dismiss=False,
+            title_size=dp(18)
+        )
+
+        def do_delete(*_):
+            if 0 <= index < len(self.products):
+                self.products.pop(index)
+            self.save_data()
+            popup.dismiss()
+            edit_popup.dismiss()
+            self.refresh_products()
+
+        yes.bind(on_release=do_delete)
+        no.bind(on_release=popup.dismiss)
+
+        popup.open()
+
+    def settings_page(self):
+        self.current_page = "settings"
+        self.main_area.clear_widgets()
+        c = self.colors()
+
+        self.main_area.add_widget(
+            self.make_header("تنظیمات")
+        )
+
+        scroll = ScrollView(do_scroll_x=False, bar_width=dp(4))
+
+        content = BoxLayout(
+            orientation="vertical",
+            spacing=dp(12),
+            padding=[dp(6), dp(6), dp(6), dp(12)],
+            size_hint_y=None
+        )
+        content.bind(minimum_height=content.setter("height"))
+
+        info_card = BoxLayout(
+            orientation="vertical",
+            size_hint_y=None,
+            height=dp(150),
+            padding=[dp(12), dp(10), dp(12), dp(10)],
+            spacing=dp(6)
+        )
+        self.add_card_background(info_card)
+
+        info_title = self.make_label("اطلاعات", size=18, bold=True)
+        info_title.size_hint_y = None
+        info_title.height = dp(30)
+        info_card.add_widget(info_title)
+
+        total_products = len(self.products)
+        total_qty = sum(
+            self.safe_int(p.get("qty", 0))
+            for p in self.products
+        )
+
+        info_text = self.make_label(
+            "تعداد محصولات: %d\n"
+            "مجموع موجودی: %d"
+            % (total_products, total_qty),
+            size=14,
+            color=c["muted"]
+        )
+        info_text.size_hint_y = None
+        info_text.height = dp(70)
+        info_card.add_widget(info_text)
+
+        content.add_widget(info_card)
+
+        backup_title = self.make_label("پشتیبان‌گیری", size=18, bold=True)
+        backup_title.size_hint_y = None
+        backup_title.height = dp(35)
+        content.add_widget(backup_title)
+
+        export_btn = self.make_button(
+            "خروجی گرفتن (ذخیره فایل)",
+            self.export_data,
+            bg=c["green"],
+            height=52,
+            font_size=15
+        )
+        content.add_widget(export_btn)
+
+        import_btn = self.make_button(
+            "وارد کردن (بازگردانی از فایل)",
+            self.import_data,
+            bg=c["blue"],
+            height=52,
+            font_size=15
+        )
+        content.add_widget(import_btn)
+
+        note = self.make_label(
+            "فایل پشتیبان در پوشه Download ذخیره می‌شود.",
+            size=12,
+            color=c["muted"]
+        )
+        note.size_hint_y = None
+        note.height = dp(40)
+        content.add_widget(note)
+
+        content.add_widget(BoxLayout(size_hint_y=None, height=dp(10)))
+
+        delete_title = self.make_label(
+            "منطقه خطر",
+            size=18,
+            bold=True,
+            color=c["red"]
+        )
+        delete_title.size_hint_y = None
+        delete_title.height = dp(35)
+        content.add_widget(delete_title)
+
+        delete_all_btn = self.make_button(
+            "حذف همه محصولات",
+            self.confirm_delete_all,
+            bg=c["red"],
+            height=52,
+            font_size=15
+        )
+        content.add_widget(delete_all_btn)
+
+        scroll.add_widget(content)
+        self.main_area.add_widget(scroll)
+
+    def confirm_delete_all(self, *_):
+        c = self.colors()
+
+        content = BoxLayout(
+            orientation="vertical",
+            spacing=dp(12),
+            padding=[dp(12), dp(12), dp(12), dp(12)]
+        )
+
+        label = self.make_label(
+            "همه محصولات حذف شوند؟\nاین عمل قابل بازگشت نیست!",
+            size=16,
+            halign="center",
+            color=c["red"]
+        )
+        content.add_widget(label)
+
+        buttons = BoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(48),
+            spacing=dp(7)
+        )
+
+        yes = self.make_button("حذف همه", bg=c["red"], height=46)
+        no = self.make_button("لغو", bg=c["panel2"], height=46)
+
+        buttons.add_widget(yes)
+        buttons.add_widget(no)
+        content.add_widget(buttons)
+
+        popup = Popup(
+            title=rtl_text("تأیید حذف"),
+            content=content,
+            size_hint=(0.88, 0.42),
+            auto_dismiss=False,
+            title_size=dp(18)
+        )
+
+        def do_delete(*_):
+            self.products = []
+            self.save_data()
+            popup.dismiss()
+            self.settings_page()
+
+        yes.bind(on_release=do_delete)
+        no.bind(on_release=popup.dismiss)
+        popup.open()          new_qty = int(qty_text)
                 new_low = int(low_text)
                 new_purchase = float(purchase_text) if purchase_text else 0.0
                 new_sale = float(sale_text) if sale_text else 0.0
