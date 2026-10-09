@@ -418,6 +418,97 @@ class PartC:
                     "qty": qty,
                     "purchase_price": purchase,
                     "sale_price": sale,
+                    "low": low,
+                    "desc": str(
+                        item.get("desc", "") or ""
+                    ).strip()
+                })
+
+            self.products = clean
+
+        except (
+            OSError,
+            ValueError,
+            TypeError,
+            json.JSONDecodeError
+        ):
+            self.products = []
+
+
+    def save_data(self):
+        try:
+            path = self.data_file()
+            folder = os.path.dirname(path)
+
+            if folder and not os.path.exists(folder):
+                os.makedirs(
+                    folder,
+                    exist_ok=True
+                )
+
+            temp_path = path + ".tmp"
+
+            with open(
+                temp_path,
+                "w",
+                encoding="utf-8"
+            ) as file:
+                json.dump(
+                    self.products,
+                    file,
+                    ensure_ascii=False,
+                    indent=2
+                )
+
+            try:
+                os.replace(
+                    temp_path,
+                    path
+                )
+            except OSError:
+                with open(
+                    path,
+                    "w",
+                    encoding="utf-8"
+                ) as file:
+                    json.dump(
+                        self.products,
+                        file,
+                        ensure_ascii=False,
+                        indent=2
+                    )
+
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
+
+            return True
+
+        except (
+            OSError,
+            TypeError,
+            ValueError
+        ):
+            return False
+
+
+    # -----------------------------
+    # Safe number helpers
+    # -----------------------------
+    def safe_int(self, value):
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return 0
+
+
+    def safe_float(self, value):
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return 0.0
+              "sale_price": sale,
                     "low": low
                 })
 
