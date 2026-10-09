@@ -23,17 +23,11 @@ class PartC:
     def alerts_page(self):
         self.current_page = "alerts"
         self.main_area.clear_widgets()
-
         c = self.colors()
 
-        self.main_area.add_widget(
-            self.make_header("هشدارهای موجودی کم")
-        )
+        self.main_area.add_widget(self.make_header("هشدارهای موجودی کم"))
 
-        scroll = ScrollView(
-            do_scroll_x=False,
-            bar_width=dp(4)
-        )
+        scroll = ScrollView(do_scroll_x=False, bar_width=dp(4))
 
         alert_list = GridLayout(
             cols=1,
@@ -42,25 +36,20 @@ class PartC:
             size_hint_y=None
         )
 
-        alert_list.bind(
-            minimum_height=alert_list.setter("height")
-        )
+        alert_list.bind(minimum_height=alert_list.setter("height"))
 
         low_products = []
 
         for index, product in enumerate(self.products):
             qty = self.safe_int(product.get("qty", 0))
             low = self.safe_int(product.get("low", 0))
-
             if qty <= low:
                 low_products.append((index, product))
 
         if not low_products:
             empty = self.make_label(
                 "محصولی با موجودی کم وجود ندارد.",
-                size=17,
-                color=c["muted"],
-                halign="center"
+                size=17, color=c["muted"], halign="center"
             )
             empty.size_hint_y = None
             empty.height = dp(90)
@@ -78,18 +67,14 @@ class PartC:
                 self.add_card_background(card)
 
                 warning = self.make_label(
-                    "هشدار",
-                    size=17,
-                    color=c["red"],
-                    bold=True
+                    "هشدار", size=17, color=c["red"], bold=True
                 )
                 warning.size_hint_y = None
                 warning.height = dp(30)
                 card.add_widget(warning)
 
                 product_label = self.make_label(
-                    "محصول: %s" % str(product.get("name", "")),
-                    size=15
+                    "محصول: %s" % str(product.get("name", "")), size=15
                 )
                 product_label.size_hint_y = None
                 product_label.height = dp(25)
@@ -103,8 +88,7 @@ class PartC:
                     "Alert level: %d\n"
                     "لطفاً به‌زودی موجودی را افزایش دهید."
                     % (qty, low),
-                    size=13,
-                    color=c["muted"]
+                    size=13, color=c["muted"]
                 )
                 details.size_hint_y = None
                 details.height = dp(65)
@@ -154,18 +138,14 @@ class PartC:
 
         status_label = self.make_label(
             "وضعیت: %s" % status,
-            size=16,
-            color=status_color,
-            bold=True
+            size=16, color=status_color, bold=True
         )
         status_label.size_hint_y = None
         status_label.height = dp(40)
         content.add_widget(status_label)
 
         close_button = self.make_button(
-            "بستن",
-            bg=c["panel2"],
-            height=48
+            "بستن", bg=c["panel2"], height=48
         )
         content.add_widget(close_button)
 
@@ -192,11 +172,7 @@ class PartC:
         label = self.make_label(text, size=16, halign="center")
         content.add_widget(label)
 
-        close = self.make_button(
-            "بستن",
-            bg=c["panel2"],
-            height=48
-        )
+        close = self.make_button("بستن", bg=c["panel2"], height=48)
         content.add_widget(close)
 
         popup = Popup(
@@ -222,7 +198,6 @@ class PartC:
 
         try:
             path = self.data_file()
-
             if not os.path.exists(path):
                 return
 
@@ -239,7 +214,6 @@ class PartC:
                     continue
 
                 name = str(item.get("name", "")).strip()
-
                 if not name:
                     continue
 
@@ -281,31 +255,18 @@ class PartC:
         try:
             path = self.data_file()
             folder = os.path.dirname(path)
-
             if folder and not os.path.exists(folder):
                 os.makedirs(folder, exist_ok=True)
 
             temp_path = path + ".tmp"
-
             with open(temp_path, "w", encoding="utf-8") as file:
-                json.dump(
-                    self.products,
-                    file,
-                    ensure_ascii=False,
-                    indent=2
-                )
+                json.dump(self.products, file, ensure_ascii=False, indent=2)
 
             try:
                 os.replace(temp_path, path)
             except OSError:
                 with open(path, "w", encoding="utf-8") as file:
-                    json.dump(
-                        self.products,
-                        file,
-                        ensure_ascii=False,
-                        indent=2
-                    )
-
+                    json.dump(self.products, file, ensure_ascii=False, indent=2)
                 try:
                     os.remove(temp_path)
                 except OSError:
@@ -326,38 +287,7 @@ class PartC:
         try:
             return float(value)
         except (ValueError, TypeError):
-            return 0.0              "sale_price": sale,
-                    "low": low,
-                    "desc": str(
-                        item.get("desc", "") or ""
-                    ).strip()
-                })
-
-            self.products = clean
-
-        except (
-            OSError,
-            ValueError,
-            TypeError,
-            json.JSONDecodeError
-        ):
-            self.products = []
-
-
-    def save_data(self):
-        try:
-            path = self.data_file()
-            folder = os.path.dirname(path)
-
-            if folder and not os.path.exists(folder):
-                os.makedirs(
-                    folder,
-                    exist_ok=True
-                )
-
-            temp_path = path + ".tmp"
-
-            with open(
+            return 0.0     with open(
                 temp_path,
                 "w",
                 encoding="utf-8"
