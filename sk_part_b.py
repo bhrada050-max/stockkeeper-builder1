@@ -16,6 +16,7 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
 
 from rtl_fix import *
+from desc_ui import wrapped_label
 
 
 class PartB:
@@ -106,6 +107,23 @@ class PartB:
 
         card.add_widget(info)
 
+        desc = str(product.get("desc", "") or "").strip()
+
+        if desc:
+            desc_label = wrapped_label(
+                "توضیحات: " + desc,
+                size=13,
+                color=c["text"]
+            )
+
+            def fit_card(*_args, lbl=desc_label):
+                card.height = dp(190) + lbl.height + dp(3)
+
+            desc_label.bind(height=fit_card)
+            fit_card()
+
+            card.add_widget(desc_label)
+
         edit = self.make_button(
             "ویرایش",
             lambda *_args, i=index: self.edit_product(i),
@@ -190,6 +208,23 @@ class PartB:
         form.add_widget(self.sale_input)
         form.add_widget(self.low_input)
 
+        self.desc_input = self.make_text_input(
+            "توضیحات (اگر داری بنویس)",
+            persian=True
+        )
+        form.add_widget(self.desc_input)
+
+        self.desc_preview = wrapped_label(
+            "",
+            size=13,
+            color=c["muted"]
+        )
+        self.desc_input.bind(
+            logical=lambda _inst, value:
+            self.desc_preview.set_raw(value)
+        )
+        form.add_widget(self.desc_preview)
+
         note = self.make_label(
             "وارد کردن قیمت‌ها اختیاری است.",
             size=12,
@@ -225,6 +260,7 @@ class PartB:
 
     def save_product(self, *_):
         name = self.name_input.logical.strip()
+        desc = self.desc_input.logical.strip()
 
         if not name:
             self.message(
@@ -280,7 +316,8 @@ class PartB:
             "qty": qty,
             "purchase_price": purchase,
             "sale_price": sale,
-            "low": low
+            "low": low,
+            "desc": desc
         }
 
         self.products.append(product)
@@ -386,6 +423,26 @@ class PartB:
         form.add_widget(sale_input)
         form.add_widget(low_input)
 
+        desc_input = self.make_text_input(
+            "توضیحات (اگر داری بنویس)",
+            persian=True
+        )
+        desc_input.set_logical(
+            product.get("desc", "")
+        )
+        form.add_widget(desc_input)
+
+        desc_preview = wrapped_label(
+            str(product.get("desc", "") or ""),
+            size=13,
+            color=c["muted"]
+        )
+        desc_input.bind(
+            logical=lambda _inst, value:
+            desc_preview.set_raw(value)
+        )
+        form.add_widget(desc_preview)
+
         scroll.add_widget(form)
         content.add_widget(scroll)
 
@@ -432,6 +489,150 @@ class PartB:
         def save_changes(*_):
             new_name = name_input.logical.strip()
             qty_text = qty_input.text.strip()
+            purchase_text = purchase_input.text.strip()
+            sale_text = sale_input.text.strip()
+            low_text = low_input.text.strip()
+
+            if not new_name:
+                self.message(
+                    "خطا",
+                    "نام محصول الزامی است."
+                )
+                return
+
+            if not qty_text or not low_text:
+                self.message(
+                    "خطا",
+                    "لطفاً اعداد معتبر وارد کنید."
+                )
+                return
+
+            try:
+                new_qty = int(qty_text)
+                new_low = int(low_text)
+
+                new_purchase = (
+                    float(purchase_text)
+                    if purchase_text
+                    else 0.0
+                )
+
+                new_sale = (
+                    float(sale_text)
+                    if sale_text
+                    else 0.0
+                )
+
+                if (
+                    new_qty < 0
+                    or new_low < 0
+                    or new_purchase < 0
+                    or new_sale < 0
+                ):
+                    raise ValueError
+
+            except (ValueError, TypeError):
+                self.message(
+                    "خطا",
+                    "لطفاً اعداد معتبر وارد کنید."
+                )
+                return
+
+            product["name"] = new_name
+            product["qty"] = new_qty
+            product["purchase_price"] = new_purchase
+            product["sale_price"] = new_sale
+            product["low"] = new_low
+            product["desc"] = desc_input.logical.strip()
+
+            self.save_data()
+            popup.dismiss()
+            self.refresh_products()
+
+        def delete_product(*_):
+            self.confirm_delete(
+                index,
+                popup
+            )
+
+        save_button.bind(on_release=save_changes)
+        delete_button.bind(on_release=delete_product)
+        close_button.bind(on_release=popup.dismiss)
+
+        popup.open()
+
+
+    def confirm_delete(self, index, edit_popup):
+        if index < 0 or index >= len(self.products):
+            return
+
+        c = self.colors()
+
+        content = BoxLayout(
+            orientation="vertical",
+            spacing=dp(12),
+            padding=[
+                dp(12),
+                dp(12),
+                dp(12),
+                dp(12)
+            ]
+        )
+
+        label = self.make_label(
+            "این محصول حذف شود؟",
+            size=16,
+            halign="center"
+        )
+
+        content.add_widget(label)
+
+        buttons = BoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(48),
+            spacing=dp(7)
+        )
+
+        yes = self.make_button(
+            "حذف",
+            bg=c["red"],
+            height=46
+        )
+
+        no = self.make_button(
+            "لغو",
+            bg=c["panel2"],
+            height=46
+        )
+
+        buttons.add_widget(yes)
+        buttons.add_widget(no)
+        content.add_widget(buttons)
+
+        popup = Popup(
+            title=rtl_text("تأیید حذف"),
+            content=content,
+            size_hint=(0.88, 0.38),
+            auto_dismiss=False,
+            title_size=dp(18),
+            title_font=FONT_NAME
+        )
+
+        def do_delete(*_):
+            if 0 <= index < len(self.products):
+                self.products.pop(index)
+
+            self.save_data()
+            popup.dismiss()
+            edit_popup.dismiss()
+            self.refresh_products()
+
+        yes.bind(on_release=do_delete)
+        no.bind(on_release=popup.dismiss)
+
+        popup.open()
+ut.text.strip()
             purchase_text = purchase_input.text.strip()
             sale_text = sale_input.text.strip()
             low_text = low_input.text.strip()
