@@ -50,10 +50,6 @@ class PartA:
         self.show_page("products")
         return self.root
 
-
-    # -----------------------------
-    # Theme / colors
-    # -----------------------------
     def colors(self):
         if self.dark_mode:
             return {
@@ -82,7 +78,6 @@ class PartA:
             "border": (0.78, 0.80, 0.84, 1),
         }
 
-
     def apply_theme(self):
         c = self.colors()
 
@@ -97,13 +92,11 @@ class PartA:
             self.create_page()
         elif self.current_page == "alerts":
             self.alerts_page()
+        elif self.current_page == "settings":
+            self.settings_page()
 
         self.update_nav_theme()
 
-
-    # -----------------------------
-    # Basic widget helpers
-    # -----------------------------
     def make_label(
         self,
         text="",
@@ -136,7 +129,6 @@ class PartA:
 
         return label
 
-
     def make_button(
         self,
         text,
@@ -163,7 +155,6 @@ class PartA:
             button.bind(on_release=callback)
 
         return button
-
 
     def make_text_input(
         self,
@@ -193,10 +184,6 @@ class PartA:
 
         return field
 
-
-    # -----------------------------
-    # Product card background
-    # -----------------------------
     def add_card_background(self, widget):
         c = self.colors()
 
@@ -233,10 +220,6 @@ class PartA:
 
         widget.bind(pos=update_card, size=update_card)
 
-
-    # -----------------------------
-    # Header
-    # -----------------------------
     def make_header(self, title):
         c = self.colors()
 
@@ -270,10 +253,6 @@ class PartA:
 
         return header
 
-
-    # -----------------------------
-    # Bottom navigation
-    # -----------------------------
     def make_bottom_nav(self):
         c = self.colors()
 
@@ -305,12 +284,19 @@ class PartA:
             height=52
         )
 
+        self.nav_settings = self.make_button(
+            "تنظیمات",
+            lambda *_: self.show_page("settings"),
+            bg=c["panel2"],
+            height=52
+        )
+
         nav.add_widget(self.nav_products)
         nav.add_widget(self.nav_create)
         nav.add_widget(self.nav_alerts)
+        nav.add_widget(self.nav_settings)
 
         return nav
-
 
     def update_nav_theme(self):
         if not hasattr(self, "bottom_nav"):
@@ -333,14 +319,16 @@ class PartA:
             else c["panel2"]
         )
 
+        self.nav_settings.background_color = (
+            c["blue"] if self.current_page == "settings"
+            else c["panel2"]
+        )
+
         self.nav_products.color = c["text"]
         self.nav_create.color = c["text"]
         self.nav_alerts.color = c["text"]
+        self.nav_settings.color = c["text"]
 
-
-    # -----------------------------
-    # Page handling
-    # -----------------------------
     def show_page(self, page):
         self.current_page = page
         self.main_area.clear_widgets()
@@ -351,13 +339,11 @@ class PartA:
             self.create_page()
         elif page == "alerts":
             self.alerts_page()
+        elif page == "settings":
+            self.settings_page()
 
         self.update_nav_theme()
 
-
-    # -----------------------------
-    # PRODUCTS PAGE
-    # -----------------------------
     def products_page(self):
         self.current_page = "products"
         self.main_area.clear_widgets()
@@ -393,6 +379,90 @@ class PartA:
         )
 
         self.product_list = GridLayout(
+            cols=1,
+            spacing=dp(10),
+            padding=[dp(1), dp(5), dp(1), dp(10)],
+            size_hint_y=None
+        )
+
+        self.product_list.bind(
+            minimum_height=self.product_list.setter("height")
+        )
+
+        self.product_scroll.add_widget(self.product_list)
+        self.main_area.add_widget(self.product_scroll)
+
+        self.refresh_products()
+
+    def search_changed(self, instance, value):
+        self.refresh_products(value)
+
+    def refresh_products(self, search_text=None):
+        if not hasattr(self, "product_list"):
+            return
+
+        self.product_list.clear_widgets()
+
+        c = self.colors()
+
+        if search_text is None:
+            search_widget = getattr(
+                self,
+                "search_input",
+                None
+            )
+            search_text = (
+                search_widget.logical
+                if search_widget
+                else ""
+            )
+
+        search_text = search_text.strip().lower()
+
+        if not self.products:
+            empty = self.make_label(
+                "هنوز محصولی وجود ندارد.\nبرای افزودن محصول روی «افزودن» بزنید.",
+                size=17,
+                color=c["muted"],
+                halign="center"
+            )
+
+            empty.size_hint_y = None
+            empty.height = dp(100)
+
+            self.product_list.add_widget(empty)
+            return
+
+        visible = [
+            (index, product)
+            for index, product in enumerate(self.products)
+            if search_text in str(
+                product.get("name", "")
+            ).lower()
+            or search_text in str(
+                product.get("desc", "") or ""
+            ).lower()
+        ]
+
+        if not visible:
+            empty = self.make_label(
+                "محصولی پیدا نشد.",
+                size=17,
+                color=c["muted"],
+                halign="center"
+            )
+
+            empty.size_hint_y = None
+            empty.height = dp(80)
+
+            self.product_list.add_widget(empty)
+            return
+
+        for index, product in visible:
+            self.add_product_card(
+                product,
+                index
+            )t = GridLayout(
             cols=1,
             spacing=dp(10),
             padding=[dp(1), dp(5), dp(1), dp(10)],
