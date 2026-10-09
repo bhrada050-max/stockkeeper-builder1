@@ -44,13 +44,13 @@ jobs:
           test -f main.py
           test -f buildozer.spec
 
-      - name: Check files and syntax
+      - name: Check Python syntax
         run: |
-          echo "--- files in repo root ---"
-          ls -la
-          test -f Vazirmatn-Regular.ttf || echo "WARNING: Vazirmatn-Regular.ttf not found in repo root"
-          python -m py_compile main.py
-          echo "Syntax OK"
+          python -m py_compile \
+            StockKeeper.py rtl_fix.py \
+            sk_part_a.py sk_part_b.py sk_part_c.py \
+            desc_ui.py maintenance.py
+          echo "All Python files passed syntax check"
 
       - name: Build APK
         run: |
@@ -61,15 +61,18 @@ jobs:
       - name: Show error summary
         if: failure()
         run: |
-          echo "-------- the lines BEFORE the failure (this is the real error) --------"
-          L=$(grep -a -n "^Command failed" build.log | head -1 | cut -d: -f1)
-          if [ -n "$L" ]; then
-            START=$((L-120))
-            [ "$START" -lt 1 ] && START=1
-            sed -n "${START},${L}p" build.log | sed 's/\x1b\[[0-9;]*m//g' | cut -c1-300
-          else
-            tail -80 build.log | sed 's/\x1b\[[0-9;]*m//g' | cut -c1-300
-          fi
+          echo "========== ERROR KEYWORDS =========="
+          grep -aEin -C 4 \
+            'Traceback|ModuleNotFoundError|SyntaxError|IndentationError|fatal error:|error:|Exception:|FAILED|BUILD FAILED|No matching distribution|not found|undefined reference|CMake Error|Could not' \
+            build.log | tail -180 || true
+
+          echo "========== LAST 160 LINES =========="
+          tail -160 build.log
+
+          echo "========== PYTHON FILE SYNTAX =========="
+          python -m py_compile \
+            main.py rtl_fix.py sk_part_a.py sk_part_b.py \
+            sk_part_c.py desc_ui.py maintenance.py
 
       - name: Upload log
         if: always()
