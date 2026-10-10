@@ -19,6 +19,16 @@ from rtl_fix import *
 from desc_ui import wrapped_label
 
 
+def format_price(value):
+    try:
+        num = float(value)
+        if num == int(num):
+            return str(int(num))
+        return str(num)
+    except (ValueError, TypeError):
+        return str(value)
+
+
 class PartB:
 
     def add_product_card(self, product, index):
@@ -27,9 +37,9 @@ class PartB:
         card = BoxLayout(
             orientation="vertical",
             size_hint_y=None,
-            height=dp(190),
-            padding=[dp(10), dp(9), dp(10), dp(9)],
-            spacing=dp(3)
+            height=dp(200),
+            padding=[dp(12), dp(10), dp(12), dp(10)],
+            spacing=dp(4)
         )
 
         self.add_card_background(card)
@@ -37,7 +47,7 @@ class PartB:
         name_row = BoxLayout(
             orientation="horizontal",
             size_hint_y=None,
-            height=dp(32)
+            height=dp(40)
         )
 
         name = str(product.get("name", ""))
@@ -66,11 +76,11 @@ class PartB:
         date = str(product.get("date", "") or "").strip()
 
         info_text = (
-            "قیمت خرید: %.2f\n"
-            "قیمت فروش: %.2f\n"
+            "قیمت خرید: %s\n"
+            "قیمت فروش: %s\n"
             "تعداد: %d\n"
             "حد هشدار: %d"
-            % (purchase, sale, qty, low)
+            % (format_price(purchase), format_price(sale), qty, low)
         )
 
         if date:
@@ -90,7 +100,7 @@ class PartB:
             )
 
             def fit_card(*_args, lbl=desc_label):
-                card.height = dp(210) + lbl.height + dp(3)
+                card.height = dp(220) + lbl.height + dp(3)
 
             desc_label.bind(height=fit_card)
             fit_card()
@@ -112,9 +122,7 @@ class PartB:
         self.main_area.clear_widgets()
         c = self.colors()
 
-        self.main_area.add_widget(
-            self.make_header("افزودن محصول")
-        )
+        self.main_area.add_widget(self.make_header("افزودن محصول"))
 
         scroll = ScrollView(do_scroll_x=False, bar_width=dp(4))
 
@@ -148,7 +156,8 @@ class PartB:
 
         self.desc_input = self.make_text_input(
             "توضیحات (اگر داری بنویس)",
-            persian=True
+            persian=True,
+            multiline=True
         )
         form.add_widget(self.desc_input)
 
@@ -276,7 +285,11 @@ class PartB:
         date_input.text = str(product.get("date", "") or "")
         form.add_widget(date_input)
 
-        desc_input = self.make_text_input("توضیحات (اگر داری بنویس)", persian=True)
+        desc_input = self.make_text_input(
+            "توضیحات (اگر داری بنویس)",
+            persian=True,
+            multiline=True
+        )
         desc_input.set_logical(product.get("desc", ""))
         form.add_widget(desc_input)
 
@@ -313,7 +326,7 @@ class PartB:
         popup = Popup(
             title=rtl_text("ویرایش محصول"),
             content=content,
-            size_hint=(0.94, 0.86),
+            size_hint=(0.94, 0.90),
             auto_dismiss=False,
             title_size=dp(18)
         )
@@ -487,8 +500,17 @@ class PartB:
         )
         content.add_widget(import_btn)
 
+        guide_btn = self.make_button(
+            "راهنمای بکاپ (فایل کجاست؟)",
+            self.share_backup,
+            bg=c["panel2"],
+            height=46,
+            font_size=13
+        )
+        content.add_widget(guide_btn)
+
         note = self.make_label(
-            "فایل پشتیبان در پوشه Download ذخیره می‌شود.",
+            "فایل بکاپ داخل پوشه اپ ذخیره می‌شود.",
             size=12,
             color=c["muted"]
         )
