@@ -17,8 +17,6 @@ from kivy.uix.textinput import TextInput
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# 1) next to this file (works in the APK and in Pydroid)
-# 2) Download folder (Pydroid fallback)
 FONT_CANDIDATES = [
     os.path.join(BASE_DIR, "Vazirmatn-Regular.ttf"),
     "Vazirmatn-Regular.ttf",
@@ -31,26 +29,8 @@ for _path in FONT_CANDIDATES:
         FONT_NAME = _path
         break
 
-# ---------------------------------------------------------------------------
-# Persian/Arabic text fix for Kivy on Pydroid 3
-#
-# The Kivy text renderer on Pydroid 3 does NOT do Arabic shaping or
-# bidirectional ordering, so Persian shows up reversed and/or with
-# disconnected letters. rtl_text() converts normal (logical) Persian text
-# into the "visual" form this renderer needs:
-#   1) letters are joined (isolated/initial/medial/final forms)
-#   2) the line is reordered right-to-left, numbers/English stay left-to-right
-#
-# Use rtl_text() ONLY when putting text on screen. Keep stored data
-# (product names, etc.) in normal order.
-#
-# If your device ever shows the text correctly WITHOUT this fix, set
-# FIX_PERSIAN_TEXT = False
-# ---------------------------------------------------------------------------
 FIX_PERSIAN_TEXT = True
 
-# char: (isolated, final) for right-joining letters,
-#       (isolated, final, initial, medial) for dual-joining letters
 _AR_FORMS = {
     "\u0621": (0xFE80,),
     "\u0622": (0xFE81, 0xFE82),
@@ -198,7 +178,6 @@ def _ar_reshape(text):
 def _ar_visual_line(line):
     shaped = _ar_reshape(line)
 
-    # group base char + its combining marks into clusters
     clusters = []
     for ch in shaped:
         if _ar_is_mark(ch) and clusters:
@@ -220,7 +199,6 @@ def _ar_visual_line(line):
 
     count = len(clusters)
 
-    # % and $ stuck to a number stay with the number
     for i in range(count):
         if types[i] == "N" and clusters[i][0] in "%$\u066A":
             before = i > 0 and clusters[i - 1][0].isdigit()
@@ -228,7 +206,6 @@ def _ar_visual_line(line):
             if before or after:
                 types[i] = "L"
 
-    # neutrals: between two LTR items they are LTR, otherwise RTL
     resolved = list(types)
     for i in range(count):
         if types[i] != "N":
@@ -249,7 +226,6 @@ def _ar_visual_line(line):
             j += 1
         resolved[i] = "L" if (left == "L" and right == "L") else "R"
 
-    # split into runs
     runs = []
     for cl, t in zip(clusters, resolved):
         if runs and runs[-1][0] == t:
@@ -278,15 +254,6 @@ def rtl_text(value):
 
 
 class PersianInput(TextInput):
-    """
-    TextInput for Persian typing on Pydroid.
-
-    Kivy draws typed text left-to-right without joining letters. This input
-    keeps what you typed in normal order in `.logical` (use that to READ the
-    value) and shows the fixed visual form on screen.
-    Typing always goes to the end; use backspace to correct mistakes.
-    """
-
     logical = StringProperty("")
 
     def __init__(self, **kwargs):
@@ -310,10 +277,17 @@ class PersianInput(TextInput):
         self.logical = "" if value is None else str(value)
         self._show()
 
-    def insert_text(self, substring, from_undo=False):
-        substring = str(substring).replace("\r", " ").replace("\n", " ")
+    def insert_text(self, substring, from_undo=False, **kwargs):
+        substring = str(substring).replace("\r", "\n")
         if not substring:
             return
+
+        if "\n" in substring and self.multiline:
+            self.logical += substring
+            self._show()
+            return
+
+        substring = substring.replace("\n", " ")
         self.logical += substring
         self._show()
 
