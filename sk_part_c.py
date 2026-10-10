@@ -1,4 +1,3 @@
-
 import json
 import os
 
@@ -27,26 +26,6 @@ def format_price(value):
         return str(num)
     except (ValueError, TypeError):
         return str(value)
-
-
-def get_download_path():
-    candidates = [
-        "/storage/emulated/0/Download",
-        "/sdcard/Download",
-    ]
-
-    try:
-        from android.storage import primary_external_storage_path
-        base = primary_external_storage_path()
-        candidates.insert(0, os.path.join(base, "Download"))
-    except Exception:
-        pass
-
-    for path in candidates:
-        if os.path.exists(path):
-            return path
-
-    return candidates[0]
 
 
 class PartC:
@@ -267,9 +246,6 @@ class PartC:
     def data_file(self):
         return os.path.join(self.user_data_dir, "stockkeeper_data.json")
 
-    def backup_file(self):
-        return os.path.join(get_download_path(), "stockkeeper_backup.json")
-
     def load_data(self):
         self.products = []
 
@@ -367,39 +343,61 @@ class PartC:
         except (ValueError, TypeError):
             return 0.0
 
+    def _copy_to_clipboard(self, text):
+        try:
+            from kivy.core.clipboard import Clipboard
+            Clipboard.copy(text)
+            return True
+        except Exception:
+            return False
+
+    def _paste_from_clipboard(self):
+        try:
+            from kivy.core.clipboard import Clipboard
+            return Clipboard.paste()
+        except Exception:
+            return ""
+
     def export_data(self, *_):
         try:
-            target = self.backup_file()
+            data_text = json.dumps(
+                self.products,
+                ensure_ascii=False,
+                indent=2
+            )
 
-            folder = os.path.dirname(target)
-            if folder and not os.path.exists(folder):
-                os.makedirs(folder, exist_ok=True)
+            ok = self._copy_to_clipboard(data_text)
 
-            with open(target, "w", encoding="utf-8") as file:
-                json.dump(
-                    self.products,
-                    file,
-                    ensure_ascii=False,
-                    indent=2
+            if ok:
+                self.message(
+                    "موفق",
+                    "محتوا تو کلیپ‌بورد کپی شد.\n\n"
+                    "الان برو تلگرام یا واتساپ، پیست کن و بفرست به خودت."
                 )
-
-            self.message("موفق", "ذخیره شد.")
+            else:
+                self.message("خطا", "کپی نشد.")
         except Exception as e:
-            self.message("خطا", "ذخیره نشد:\n" + str(e))
+            self.message("خطا", "خطا:\n" + str(e))
 
     def import_data(self, *_):
         try:
-            target = self.backup_file()
+            text = self._paste_from_clipboard()
 
-            if not os.path.exists(target):
+            if not text or not text.strip():
                 self.message(
                     "خطا",
-                    "فایل بکاپ پیدا نشد.\nلطفاً اول بکاپ بگیر."
+                    "کلیپ‌بورد خالیه.\n\n"
+                    "اول محتوای بکاپ رو از تلگرام/واتساپ کپی کن."
                 )
                 return
 
-            with open(target, "r", encoding="utf-8") as file:
-                data = json.load(file)
+            text = text.strip()
+
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError:
+                self.message("خطا", "متن کپی‌شده معتبر نیست.")
+                return
 
             if not isinstance(data, list):
                 self.message("خطا", "فایل خراب است.")
@@ -417,23 +415,15 @@ class PartC:
             elif self.current_page == "products":
                 self.refresh_products()
         except Exception as e:
-            self.message("خطا", "بازگردانی نشد:\n" + str(e))
+            self.message("خطا", "خطا:\n" + str(e))
 
     def share_backup(self, *_):
-        try:
-            target = self.backup_file()
-
-            if os.path.exists(target):
-                msg = (
-                    "فایل بکاپ در پوشه Download هست.\n"
-                    "نام فایل: stockkeeper_backup.json"
-                )
-            else:
-                msg = (
-                    "هنوز بکاپی ذخیره نشده.\n"
-                    "اول دکمه «خروجی گرفتن» رو بزن."
-                )
-
-            self.message("راهنما", msg)
-        except Exception as e:
-            self.message("خطا", str(e))
+        self.message(
+            "راهنما",
+            "۱. دکمه «خروجی گرفتن» رو بزن\n"
+            "۲. محتوا تو کلیپ‌بورد کپی می‌شه\n"
+            "۳. برو تلگرام، پیست کن، بفرست به خودت\n\n"
+            "برای بازگردانی:\n"
+            "۱. محتوا رو از تلگرام کپی کن\n"
+            "۲. تو اپ، دکمه «وارد کردن» رو بزن"
+        )
