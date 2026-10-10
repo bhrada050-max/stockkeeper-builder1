@@ -29,7 +29,6 @@ def format_price(value):
 
 
 def upload_text(text):
-    """آپلود متن به paste.rs و برگرداندن لینک"""
     try:
         import urllib.request
 
@@ -56,7 +55,6 @@ def upload_text(text):
 
 
 def download_text(url):
-    """دانلود متن از یه لینک"""
     try:
         import urllib.request
 
@@ -400,12 +398,14 @@ class PartC:
             indent=2
         )
 
-        self.message("لطفاً صبر کنید...", "در حال آپلود بکاپ...")
+        self.message("لطفاً صبر کنید...", "در حال ساخت کد بکاپ...")
 
         def do_upload(dt):
             url = upload_text(data_text)
 
-            Clock.schedule_once(lambda dt: self._show_export_result(url), 0)
+            Clock.schedule_once(
+                lambda dt: self._show_export_result(url), 0
+            )
 
         Clock.schedule_once(do_upload, 0.1)
 
@@ -414,15 +414,15 @@ class PartC:
             copy_to_clipboard(url)
 
             self.message(
-                "موفق",
-                "لینک بکاپ:\n\n" + url +
-                "\n\n(لینک در کلیپ‌بورد کپی شد)\n\n"
-                "این لینک رو تو تلگرام برای خودت بفرست."
+                "بکاپ ساخته شد",
+                "کد بکاپ شما:\n\n" + url +
+                "\n\n(این کد در کلیپ‌بورد کپی شد)\n\n"
+                "این کد رو تو تلگرام برای خودت بفرست تا همیشه داشته باشی."
             )
         else:
             self.message(
                 "خطا",
-                "آپلود نشد. اینترنت رو چک کن و دوباره امتحان کن."
+                "ساخته نشد. اینترنت رو چک کن و دوباره امتحان کن."
             )
 
     def import_data(self, *_):
@@ -431,11 +431,11 @@ class PartC:
         if not url or not url.startswith("http"):
             self.message(
                 "خطا",
-                "اول لینک بکاپ رو از تلگرام کپی کن، بعد این دکمه رو بزن."
+                "اول کد بکاپ رو از تلگرام کپی کن، بعد این دکمه رو بزن."
             )
             return
 
-        self.message("لطفاً صبر کنید...", "در حال دانلود بکاپ از لینک:\n\n" + url)
+        self.message("لطفاً صبر کنید...", "در حال بازگردانی از کد:\n\n" + url)
 
         def do_download(dt):
             text = download_text(url)
@@ -448,17 +448,17 @@ class PartC:
 
     def _do_import_from_text(self, text):
         if not text:
-            self.message("خطا", "دانلود نشد. اینترنت رو چک کن.")
+            self.message("خطا", "بازگردانی نشد. اینترنت رو چک کن.")
             return
 
         try:
             data = json.loads(text)
         except json.JSONDecodeError:
-            self.message("خطا", "محتوای لینک معتبر نیست.")
+            self.message("خطا", "کد بکاپ معتبر نیست.")
             return
 
         if not isinstance(data, list):
-            self.message("خطا", "فایل خراب است.")
+            self.message("خطا", "کد بکاپ خراب است.")
             return
 
         self.products = data
@@ -475,12 +475,16 @@ class PartC:
 
     def share_backup(self, *_):
         self.message(
-            "راهنما",
-            "برای پشتیبان‌گیری:\n"
+            "راهنمای بکاپ",
+            "بکاپ چیه؟\n"
+            "یه کد اینترنتی هست که اطلاعات محصولاتت رو نگه می‌داره.\n\n"
+            "چطور بکاپ بگیرم؟\n"
             "1. دکمه «خروجی گرفتن» رو بزن\n"
-            "2. یه لینک ساخته می‌شه و کپی می‌شه\n"
-            "3. لینک رو تو تلگرام برای خودت بفرست\n\n"
-            "برای بازگردانی:\n"
-            "1. لینک رو از تلگرام کپی کن\n"
-            "2. دکمه «وارد کردن» رو بزن"
-        )
+            "2. چند ثانیه صبر کن\n"
+            "3. یه کد بهت می‌ده\n"
+            "4. اون کد رو تو تلگرام برای خودت بفرست\n\n"
+            "چطور بکاپ رو برگردونم؟\n"
+            "1. کد بکاپ رو از تلگرام کپی کن\n"
+            "2. دکمه «وارد کردن» رو بزن\n"
+            "3. اطلاعاتت برمی‌گرده"
+                )
