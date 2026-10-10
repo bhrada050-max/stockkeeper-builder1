@@ -249,6 +249,16 @@ class PartB:
             padding=[dp(12), dp(12), dp(12), dp(12)]
         )
 
+        title_label = self.make_label(
+            "ویرایش محصول",
+            size=18,
+            bold=True,
+            halign="center"
+        )
+        title_label.size_hint_y = None
+        title_label.height = dp(40)
+        content.add_widget(title_label)
+
         scroll = ScrollView(do_scroll_x=False, bar_width=dp(3))
 
         form = BoxLayout(
@@ -324,11 +334,11 @@ class PartB:
         content.add_widget(buttons)
 
         popup = Popup(
-            title=rtl_text("ویرایش محصول"),
             content=content,
             size_hint=(0.94, 0.90),
             auto_dismiss=False,
-            title_size=dp(18)
+            title="",
+            separator_height=0
         )
 
         def save_changes(*_):
@@ -390,6 +400,16 @@ class PartB:
             padding=[dp(12), dp(12), dp(12), dp(12)]
         )
 
+        title_label = self.make_label(
+            "تأیید حذف",
+            size=18,
+            bold=True,
+            halign="center"
+        )
+        title_label.size_hint_y = None
+        title_label.height = dp(40)
+        content.add_widget(title_label)
+
         label = self.make_label("این محصول حذف شود؟", size=16, halign="center")
         content.add_widget(label)
 
@@ -408,11 +428,11 @@ class PartB:
         content.add_widget(buttons)
 
         popup = Popup(
-            title=rtl_text("تأیید حذف"),
             content=content,
-            size_hint=(0.88, 0.38),
+            size_hint=(0.88, 0.45),
             auto_dismiss=False,
-            title_size=dp(18)
+            title="",
+            separator_height=0
         )
 
         def do_delete(*_):
@@ -551,6 +571,16 @@ class PartB:
             padding=[dp(12), dp(12), dp(12), dp(12)]
         )
 
+        title_label = self.make_label(
+            "تأیید حذف",
+            size=18,
+            bold=True,
+            halign="center"
+        )
+        title_label.size_hint_y = None
+        title_label.height = dp(40)
+        content.add_widget(title_label)
+
         label = self.make_label(
             "همه محصولات حذف شوند؟\nاین عمل قابل بازگشت نیست!",
             size=16,
@@ -574,11 +604,11 @@ class PartB:
         content.add_widget(buttons)
 
         popup = Popup(
-            title=rtl_text("تأیید حذف"),
             content=content,
-            size_hint=(0.88, 0.42),
+            size_hint=(0.88, 0.45),
             auto_dismiss=False,
-            title_size=dp(18)
+            title="",
+            separator_height=0
         )
 
         def do_delete(*_):
