@@ -1,3 +1,4 @@
+
 import json
 import os
 
@@ -29,7 +30,6 @@ def format_price(value):
 
 
 def get_download_path():
-    """پیدا کردن مسیر Download برای همه اندرویدها"""
     candidates = [
         "/storage/emulated/0/Download",
         "/sdcard/Download",
@@ -46,7 +46,6 @@ def get_download_path():
         if os.path.exists(path):
             return path
 
-    # اگه هیچکدوم نبود، اولین گزینه رو برگردون
     return candidates[0]
 
 
@@ -384,19 +383,9 @@ class PartC:
                     indent=2
                 )
 
-            self.message(
-                "موفق",
-                "فایل پشتیبان ذخیره شد در:\n\n" + target +
-                "\n\nاین فایل رو از پوشه Download بردار و با "
-                "واتساپ یا تلگرام بفرست به گوشی دیگه."
-            )
+            self.message("موفق", "ذخیره شد.")
         except Exception as e:
-            self.message(
-                "خطا",
-                "ذخیره نشد:\n" + str(e) +
-                "\n\nاگه مشکل مجوز داری:\n"
-                "Settings → Apps → StockKeeper → Permissions → Files → Allow"
-            )
+            self.message("خطا", "ذخیره نشد:\n" + str(e))
 
     def import_data(self, *_):
         try:
@@ -405,9 +394,7 @@ class PartC:
             if not os.path.exists(target):
                 self.message(
                     "خطا",
-                    "فایل پشتیبان پیدا نشد در:\n\n" + target +
-                    "\n\nلطفاً فایل رو از تلگرام/واتساپ دانلود کن و "
-                    "داخل پوشه Download بذار."
+                    "فایل بکاپ پیدا نشد.\nلطفاً اول بکاپ بگیر."
                 )
                 return
 
@@ -422,7 +409,7 @@ class PartC:
             self.save_data()
             self.message(
                 "موفق",
-                "بازگردانی انجام شد.\nتعداد: %d" % len(self.products)
+                "بازگردانی شد. تعداد: %d" % len(self.products)
             )
 
             if self.current_page == "settings":
@@ -430,10 +417,7 @@ class PartC:
             elif self.current_page == "products":
                 self.refresh_products()
         except Exception as e:
-            self.message(
-                "خطا",
-                "بازگردانی نشد:\n" + str(e)
-            )
+            self.message("خطا", "بازگردانی نشد:\n" + str(e))
 
     def share_backup(self, *_):
         try:
@@ -441,13 +425,8 @@ class PartC:
 
             if os.path.exists(target):
                 msg = (
-                    "فایل بکاپ در این مسیر هست:\n\n"
-                    + target +
-                    "\n\nراهنما:\n"
-                    "1. فایل رو از پوشه Download بردار\n"
-                    "2. با تلگرام یا واتساپ بفرست به گوشی دیگه\n"
-                    "3. تو گوشی جدید، فایل رو داخل Download بذار\n"
-                    "4. توی اپ، دکمه «وارد کردن» رو بزن"
+                    "فایل بکاپ در پوشه Download هست.\n"
+                    "نام فایل: stockkeeper_backup.json"
                 )
             else:
                 msg = (
