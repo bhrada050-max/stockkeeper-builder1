@@ -179,11 +179,23 @@ class PartC:
 
         content = BoxLayout(
             orientation="vertical",
-            spacing=dp(12),
-            padding=[dp(14), dp(14), dp(14), dp(14)]
+            spacing=dp(14),
+            padding=[dp(18), dp(18), dp(18), dp(18)]
         )
 
-        label = self.make_label(text, size=16, halign="center")
+        label = self.make_label(
+            text,
+            size=15,
+            halign="center",
+            valign="middle"
+        )
+        label.size_hint_y = None
+        label.height = dp(220)
+        label.bind(
+            width=lambda obj, w: setattr(
+                obj, "text_size", (w, None)
+            )
+        )
         content.add_widget(label)
 
         close = self.make_button("بستن", bg=c["panel2"], height=48)
@@ -192,7 +204,7 @@ class PartC:
         popup = Popup(
             title=rtl_text(title),
             content=content,
-            size_hint=(0.88, 0.45),
+            size_hint=(0.92, 0.55),
             auto_dismiss=True,
             title_size=dp(18)
         )
