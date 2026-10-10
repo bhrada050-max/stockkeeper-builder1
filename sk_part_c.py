@@ -1,6 +1,5 @@
 import json
 import os
-import shutil
 
 from kivy.app import App
 from kivy.clock import Clock
@@ -247,6 +246,19 @@ class PartC:
     def data_file(self):
         return os.path.join(self.user_data_dir, "stockkeeper_data.json")
 
+    def download_backup_file(self):
+        try:
+            base = "/storage/emulated/0/Download"
+            if not os.path.exists(base):
+                base = "/sdcard/Download"
+            if not os.path.exists(base):
+                base = os.path.join(self.user_data_dir, "Download")
+                if not os.path.exists(base):
+                    os.makedirs(base, exist_ok=True)
+            return os.path.join(base, "stockkeeper_backup.json")
+        except Exception:
+            return os.path.join(self.user_data_dir, "stockkeeper_backup.json")
+
     def load_data(self):
         self.products = []
 
@@ -344,100 +356,86 @@ class PartC:
         except (ValueError, TypeError):
             return 0.0
 
-    def get_backup_paths(self):
-        paths = []
-        try:
-            paths.append("/storage/emulated/0/Download/stockkeeper_backup.json")
-        except Exception:
-            pass
-        try:
-            paths.append("/sdcard/Download/stockkeeper_backup.json")
-        except Exception:
-            pass
-        paths.append(os.path.join(self.user_data_dir, "stockkeeper_backup.json"))
-        return paths
-
     def export_data(self, *_):
-        saved_paths = []
+        target = self.download_backup_file()
 
-        for path in self.get_backup_paths():
-            try:
-                folder = os.path.dirname(path)
-                if folder and not os.path.exists(folder):
-                    os.makedirs(folder, exist_ok=True)
+        try:
+            folder = os.path.dirname(target)
+            if folder and not os.path.exists(folder):
+                os.makedirs(folder, exist_ok=True)
 
-                with open(path, "w", encoding="utf-8") as file:
-                    json.dump(
-                        self.products,
-                        file,
-                        ensure_ascii=False,
-                        indent=2
-                    )
-                saved_paths.append(path)
-            except Exception:
-                continue
+            with open(target, "w", encoding="utf-8") as file:
+                json.dump(
+                    self.products,
+                    file,
+                    ensure_ascii=False,
+                    indent=2
+                )
 
-        if saved_paths:
-            msg = "فایل پشتیبان ذخیره شد در:\n\n"
-            for p in saved_paths:
-                msg += "- " + p + "\n\n"
-            msg += "برای انتقال به گوشی دیگر، فایل را از یکی از این مسیرها کپی کنید."
-            self.message("موفق", msg)
-        else:
+            self.message(
+                "موفق",
+                "فایل پشتیبان ذخیره شد در:\n\n" + target +
+                "\n\nاین فایل رو از پوشه Download بردار و با "
+                "واتساپ یا تلگرام بفرست به گوشی دیگه."
+            )
+        except Exception as e:
             self.message(
                 "خطا",
-                "ذخیره نشد. لطفاً از دکمه «راهنمای بکاپ» استفاده کنید."
+                "ذخیره نشد:\n" + str(e) +
+                "\n\nاگه مشکل مجوز داری، برو:\n"
+                "Settings → Apps → StockKeeper → Permissions → Storage → Allow"
             )
 
     def import_data(self, *_):
-        found_path = None
-        data = None
+        target = self.download_backup_file()
 
-        for path in self.get_backup_paths():
-            try:
-                if not os.path.exists(path):
-                    continue
-
-                with open(path, "r", encoding="utf-8") as file:
-                    data = json.load(file)
-                found_path = path
-                break
-            except Exception:
-                continue
-
-        if data is None:
+        if not os.path.exists(target):
             self.message(
                 "خطا",
-                "فایل پشتیبان پیدا نشد.\n\nاز دکمه «راهنمای بکاپ» استفاده کنید."
+                "فایل پشتیبان پیدا نشد در:\n\n" + target +
+                "\n\nلطفاً فایل رو از تلگرام/واتساپ دانلود کن و "
+                "داخل پوشه Download بذار."
             )
             return
 
-        if not isinstance(data, list):
-            self.message("خطا", "فایل خراب است.")
-            return
+        try:
+            with open(target, "r", encoding="utf-8") as file:
+                data = json.load(file)
 
-        self.products = data
-        self.save_data()
-        self.message(
-            "موفق",
-            "بازگردانی انجام شد.\nتعداد: %d\n\nاز فایل:\n%s"
-            % (len(self.products), found_path)
-        )
+            if not isinstance(data, list):
+                self.message("خطا", "فایل خراب است.")
+                return
 
-        if self.current_page == "settings":
-            self.settings_page()
-        elif self.current_page == "products":
-            self.refresh_products()
+            self.products = data
+            self.save_data()
+            self.message(
+                "موفق",
+                "بازگردانی انجام شد.\nتعداد: %d" % len(self.products)
+            )
+
+            if self.current_page == "settings":
+                self.settings_page()
+            elif self.current_page == "products":
+                self.refresh_products()
+        except Exception as e:
+            self.message(
+                "خطا",
+                "بازگردانی نشد:\n" + str(e)
+            )
 
     def share_backup(self, *_):
-        paths = self.get_backup_paths()
-        existing = [p for p in paths if os.path.exists(p)]
+        target = self.download_backup_file()
 
-        if existing:
-            msg = "فایل بکاپ در این مسیرها هست:\n\n"
-            for p in existing:
-                msg += "- " + p + "\n\n"
-            msg += "این فایل رو با واتساپ یا بلوتوث بفرست به گوشی دیگه."
+        if os.path.exists(target):
+            msg = (
+                "فایل بکاپ در این مسیر هست:\n\n"
+                + target +
+                "\n\nراهنما:\n"
+                "1. فایل رو از پوشه Download بردار\n"
+                "2. با تلگرام یا واتساپ بفرست\n"
+                "3. تو گوشی جدید، فایل رو داخل Download بذار\n"
+                "4. توی اپ، دکمه «وارد کردن» رو بزن"
+            )
         else:
             msg = (
                 "هنوز بکاپی ذخیره نشده.\n"
