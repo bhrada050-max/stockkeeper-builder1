@@ -28,6 +28,28 @@ def format_price(value):
         return str(value)
 
 
+def get_download_path():
+    """پیدا کردن مسیر Download برای همه اندرویدها"""
+    candidates = [
+        "/storage/emulated/0/Download",
+        "/sdcard/Download",
+    ]
+
+    try:
+        from android.storage import primary_external_storage_path
+        base = primary_external_storage_path()
+        candidates.insert(0, os.path.join(base, "Download"))
+    except Exception:
+        pass
+
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+
+    # اگه هیچکدوم نبود، اولین گزینه رو برگردون
+    return candidates[0]
+
+
 class PartC:
 
     def alerts_page(self):
@@ -246,18 +268,8 @@ class PartC:
     def data_file(self):
         return os.path.join(self.user_data_dir, "stockkeeper_data.json")
 
-    def download_backup_file(self):
-        try:
-            base = "/storage/emulated/0/Download"
-            if not os.path.exists(base):
-                base = "/sdcard/Download"
-            if not os.path.exists(base):
-                base = os.path.join(self.user_data_dir, "Download")
-                if not os.path.exists(base):
-                    os.makedirs(base, exist_ok=True)
-            return os.path.join(base, "stockkeeper_backup.json")
-        except Exception:
-            return os.path.join(self.user_data_dir, "stockkeeper_backup.json")
+    def backup_file(self):
+        return os.path.join(get_download_path(), "stockkeeper_backup.json")
 
     def load_data(self):
         self.products = []
@@ -357,9 +369,9 @@ class PartC:
             return 0.0
 
     def export_data(self, *_):
-        target = self.download_backup_file()
-
         try:
+            target = self.backup_file()
+
             folder = os.path.dirname(target)
             if folder and not os.path.exists(folder):
                 os.makedirs(folder, exist_ok=True)
@@ -382,23 +394,23 @@ class PartC:
             self.message(
                 "خطا",
                 "ذخیره نشد:\n" + str(e) +
-                "\n\nاگه مشکل مجوز داری، برو:\n"
-                "Settings → Apps → StockKeeper → Permissions → Storage → Allow"
+                "\n\nاگه مشکل مجوز داری:\n"
+                "Settings → Apps → StockKeeper → Permissions → Files → Allow"
             )
 
     def import_data(self, *_):
-        target = self.download_backup_file()
-
-        if not os.path.exists(target):
-            self.message(
-                "خطا",
-                "فایل پشتیبان پیدا نشد در:\n\n" + target +
-                "\n\nلطفاً فایل رو از تلگرام/واتساپ دانلود کن و "
-                "داخل پوشه Download بذار."
-            )
-            return
-
         try:
+            target = self.backup_file()
+
+            if not os.path.exists(target):
+                self.message(
+                    "خطا",
+                    "فایل پشتیبان پیدا نشد در:\n\n" + target +
+                    "\n\nلطفاً فایل رو از تلگرام/واتساپ دانلود کن و "
+                    "داخل پوشه Download بذار."
+                )
+                return
+
             with open(target, "r", encoding="utf-8") as file:
                 data = json.load(file)
 
@@ -424,22 +436,25 @@ class PartC:
             )
 
     def share_backup(self, *_):
-        target = self.download_backup_file()
+        try:
+            target = self.backup_file()
 
-        if os.path.exists(target):
-            msg = (
-                "فایل بکاپ در این مسیر هست:\n\n"
-                + target +
-                "\n\nراهنما:\n"
-                "1. فایل رو از پوشه Download بردار\n"
-                "2. با تلگرام یا واتساپ بفرست\n"
-                "3. تو گوشی جدید، فایل رو داخل Download بذار\n"
-                "4. توی اپ، دکمه «وارد کردن» رو بزن"
-            )
-        else:
-            msg = (
-                "هنوز بکاپی ذخیره نشده.\n"
-                "اول دکمه «خروجی گرفتن» رو بزن."
-            )
+            if os.path.exists(target):
+                msg = (
+                    "فایل بکاپ در این مسیر هست:\n\n"
+                    + target +
+                    "\n\nراهنما:\n"
+                    "1. فایل رو از پوشه Download بردار\n"
+                    "2. با تلگرام یا واتساپ بفرست به گوشی دیگه\n"
+                    "3. تو گوشی جدید، فایل رو داخل Download بذار\n"
+                    "4. توی اپ، دکمه «وارد کردن» رو بزن"
+                )
+            else:
+                msg = (
+                    "هنوز بکاپی ذخیره نشده.\n"
+                    "اول دکمه «خروجی گرفتن» رو بزن."
+                )
 
-        self.message("راهنما", msg)
+            self.message("راهنما", msg)
+        except Exception as e:
+            self.message("خطا", str(e))
