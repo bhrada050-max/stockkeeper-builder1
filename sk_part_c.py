@@ -75,4 +75,333 @@ class PartC:
                 self.add_card_background(card)
 
                 warning = self.make_label("هشدار", size=17, color=c["red"], bold=True)
-                warning.size_hint_y =
+                warning.size_hint_y = None
+                warning.height = dp(30)
+                card.add_widget(warning)
+
+                product_label = self.make_label(
+                    "محصول: %s" % str(product.get("name", "")),
+                    size=15
+                )
+                product_label.size_hint_y = None
+                product_label.height = dp(25)
+                card.add_widget(product_label)
+
+                qty = self.safe_int(product.get("qty", 0))
+                low = self.safe_int(product.get("low", 0))
+
+                details = self.make_label(
+                    "فقط %d عدد باقی مانده\n"
+                    "Alert level: %d\n"
+                    "لطفاً به‌زودی موجودی را افزایش دهید."
+                    % (qty, low),
+                    size=13, color=c["muted"]
+                )
+                details.size_hint_y = None
+                details.height = dp(65)
+                card.add_widget(details)
+
+                alert_list.add_widget(card)
+
+        scroll.add_widget(alert_list)
+        self.main_area.add_widget(scroll)
+
+    def product_details(self, index):
+        if index < 0 or index >= len(self.products):
+            return
+
+        c = self.colors()
+        product = self.products[index]
+
+        name = str(product.get("name", ""))
+        qty = self.safe_int(product.get("qty", 0))
+        low = self.safe_int(product.get("low", 0))
+        purchase = self.safe_float(product.get("purchase_price", 0))
+        sale = self.safe_float(product.get("sale_price", 0))
+        date = str(product.get("date", "") or "").strip()
+        desc = str(product.get("desc", "") or "").strip()
+
+        status = "موجودی کم" if qty <= low else "موجود"
+        status_color = c["red"] if status == "موجودی کم" else c["green"]
+
+        content = BoxLayout(
+            orientation="vertical",
+            spacing=dp(10),
+            padding=[dp(14), dp(14), dp(14), dp(14)]
+        )
+
+        title = self.make_label(name, size=21, bold=True)
+        title.size_hint_y = None
+        title.height = dp(42)
+        content.add_widget(title)
+
+        info_text = (
+            "قیمت خرید: %s\n"
+            "قیمت فروش: %s\n"
+            "تعداد: %d\n"
+            "حد هشدار: %d"
+            % (format_price(purchase), format_price(sale), qty, low)
+        )
+        if date:
+            info_text += "\nتاریخ: " + date
+        if desc:
+            info_text += "\nتوضیحات: " + desc
+
+        info = self.make_label(info_text, size=16)
+        content.add_widget(info)
+
+        status_label = self.make_label(
+            "وضعیت: %s" % status,
+            size=16,
+            color=status_color,
+            bold=True
+        )
+        status_label.size_hint_y = None
+        status_label.height = dp(40)
+        content.add_widget(status_label)
+
+        close_button = self.make_button("بستن", bg=c["panel2"], height=48)
+        content.add_widget(close_button)
+
+        popup = Popup(
+            title=rtl_text("جزئیات محصول"),
+            content=content,
+            size_hint=(0.90, 0.75),
+            auto_dismiss=True,
+            title_size=dp(18)
+        )
+
+        close_button.bind(on_release=popup.dismiss)
+        popup.open()
+
+    def message(self, title, text):
+        c = self.colors()
+
+        content = BoxLayout(
+            orientation="vertical",
+            spacing=dp(12),
+            padding=[dp(14), dp(14), dp(14), dp(14)]
+        )
+
+        label = self.make_label(text, size=16, halign="center")
+        content.add_widget(label)
+
+        close = self.make_button("بستن", bg=c["panel2"], height=48)
+        content.add_widget(close)
+
+        popup = Popup(
+            title=rtl_text(title),
+            content=content,
+            size_hint=(0.88, 0.45),
+            auto_dismiss=True,
+            title_size=dp(18)
+        )
+
+        close.bind(on_release=popup.dismiss)
+        popup.open()
+
+    def change_theme(self, *_):
+        self.dark_mode = not self.dark_mode
+        self.apply_theme()
+
+    def data_file(self):
+        return os.path.join(self.user_data_dir, "stockkeeper_data.json")
+
+    def load_data(self):
+        self.products = []
+
+        try:
+            path = self.data_file()
+            if not os.path.exists(path):
+                return
+
+            with open(path, "r", encoding="utf-8") as file:
+                data = json.load(file)
+
+            if not isinstance(data, list):
+                return
+
+            clean = []
+
+            for item in data:
+                if not isinstance(item, dict):
+                    continue
+
+                name = str(item.get("name", "")).strip()
+                if not name:
+                    continue
+
+                try:
+                    qty = int(item.get("qty", 0))
+                    low = int(item.get("low", 0))
+
+                    if "purchase_price" in item:
+                        purchase = float(item.get("purchase_price", 0))
+                    else:
+                        purchase = 0.0
+
+                    if "sale_price" in item:
+                        sale = float(item.get("sale_price", 0))
+                    else:
+                        sale = float(item.get("price", 0))
+
+                except (ValueError, TypeError):
+                    continue
+
+                if qty < 0 or low < 0 or purchase < 0 or sale < 0:
+                    continue
+
+                clean.append({
+                    "name": name,
+                    "qty": qty,
+                    "purchase_price": purchase,
+                    "sale_price": sale,
+                    "low": low,
+                    "desc": str(item.get("desc", "") or "").strip(),
+                    "date": str(item.get("date", "") or "").strip()
+                })
+
+            self.products = clean
+
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            self.products = []
+
+    def save_data(self):
+        try:
+            path = self.data_file()
+            folder = os.path.dirname(path)
+            if folder and not os.path.exists(folder):
+                os.makedirs(folder, exist_ok=True)
+
+            temp_path = path + ".tmp"
+            with open(temp_path, "w", encoding="utf-8") as file:
+                json.dump(self.products, file, ensure_ascii=False, indent=2)
+
+            try:
+                os.replace(temp_path, path)
+            except OSError:
+                with open(path, "w", encoding="utf-8") as file:
+                    json.dump(self.products, file, ensure_ascii=False, indent=2)
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
+
+            return True
+
+        except (OSError, TypeError, ValueError):
+            return False
+
+    def safe_int(self, value):
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return 0
+
+    def safe_float(self, value):
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def get_backup_paths(self):
+        paths = []
+        try:
+            paths.append("/storage/emulated/0/Download/stockkeeper_backup.json")
+        except Exception:
+            pass
+        try:
+            paths.append("/sdcard/Download/stockkeeper_backup.json")
+        except Exception:
+            pass
+        paths.append(os.path.join(self.user_data_dir, "stockkeeper_backup.json"))
+        return paths
+
+    def export_data(self, *_):
+        saved_paths = []
+
+        for path in self.get_backup_paths():
+            try:
+                folder = os.path.dirname(path)
+                if folder and not os.path.exists(folder):
+                    os.makedirs(folder, exist_ok=True)
+
+                with open(path, "w", encoding="utf-8") as file:
+                    json.dump(
+                        self.products,
+                        file,
+                        ensure_ascii=False,
+                        indent=2
+                    )
+                saved_paths.append(path)
+            except Exception:
+                continue
+
+        if saved_paths:
+            msg = "فایل پشتیبان ذخیره شد در:\n\n"
+            for p in saved_paths:
+                msg += "- " + p + "\n\n"
+            msg += "برای انتقال به گوشی دیگر، فایل را از یکی از این مسیرها کپی کنید."
+            self.message("موفق", msg)
+        else:
+            self.message(
+                "خطا",
+                "ذخیره نشد. لطفاً از دکمه «راهنمای بکاپ» استفاده کنید."
+            )
+
+    def import_data(self, *_):
+        found_path = None
+        data = None
+
+        for path in self.get_backup_paths():
+            try:
+                if not os.path.exists(path):
+                    continue
+
+                with open(path, "r", encoding="utf-8") as file:
+                    data = json.load(file)
+                found_path = path
+                break
+            except Exception:
+                continue
+
+        if data is None:
+            self.message(
+                "خطا",
+                "فایل پشتیبان پیدا نشد.\n\nاز دکمه «راهنمای بکاپ» استفاده کنید."
+            )
+            return
+
+        if not isinstance(data, list):
+            self.message("خطا", "فایل خراب است.")
+            return
+
+        self.products = data
+        self.save_data()
+        self.message(
+            "موفق",
+            "بازگردانی انجام شد.\nتعداد: %d\n\nاز فایل:\n%s"
+            % (len(self.products), found_path)
+        )
+
+        if self.current_page == "settings":
+            self.settings_page()
+        elif self.current_page == "products":
+            self.refresh_products()
+
+    def share_backup(self, *_):
+        paths = self.get_backup_paths()
+        existing = [p for p in paths if os.path.exists(p)]
+
+        if existing:
+            msg = "فایل بکاپ در این مسیرها هست:\n\n"
+            for p in existing:
+                msg += "- " + p + "\n\n"
+            msg += "این فایل رو با واتساپ یا بلوتوث بفرست به گوشی دیگه."
+        else:
+            msg = (
+                "هنوز بکاپی ذخیره نشده.\n"
+                "اول دکمه «خروجی گرفتن» رو بزن."
+            )
+
+        self.message("راهنما", msg)
