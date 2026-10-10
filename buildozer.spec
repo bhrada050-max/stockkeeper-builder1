@@ -5,7 +5,7 @@ package.domain = org.mystore
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json,ttf
 version = 1.0.0
-requirements = python3==3.11.5,hostpython3==3.11.5,kivy==2.3.0,certifi
+requirements = python3==3.11.5,hostpython3==3.11.5,kivy==2.3.0,certifi,openssl
 orientation = portrait
 fullscreen = 0
 
@@ -14,8 +14,9 @@ android.minapi = 24
 android.ndk = 25b
 android.archs = arm64-v8a
 android.allow_backup = True
+android.permissions = INTERNET, WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE
 android.accept_sdk_license = True
-android.permissions = WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE, MANAGE_EXTERNAL_STORAGE
+
 p4a.branch = v2024.01.21
 
 [buildozer]
