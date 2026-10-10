@@ -15,7 +15,7 @@ android.ndk = 25b
 android.archs = arm64-v8a
 android.allow_backup = True
 android.accept_sdk_license = True
-android.permissions = INTERNET
+android.permissions = WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE
 
 p4a.branch = v2024.01.21
 
