@@ -183,6 +183,11 @@ class PartC:
             padding=[dp(18), dp(18), dp(18), dp(18)]
         )
 
+        scroll = ScrollView(
+            do_scroll_x=False,
+            bar_width=dp(4)
+        )
+
         label = self.make_label(
             text,
             size=15,
@@ -190,13 +195,16 @@ class PartC:
             valign="middle"
         )
         label.size_hint_y = None
-        label.height = dp(220)
         label.bind(
             width=lambda obj, w: setattr(
-                obj, "text_size", (w, None)
+                obj, "text_size", (w - dp(10), None)
+            ),
+            texture_size=lambda obj, ts: setattr(
+                obj, "height", ts[1] + dp(20)
             )
         )
-        content.add_widget(label)
+        scroll.add_widget(label)
+        content.add_widget(scroll)
 
         close = self.make_button("بستن", bg=c["panel2"], height=48)
         content.add_widget(close)
@@ -204,7 +212,7 @@ class PartC:
         popup = Popup(
             title=rtl_text(title),
             content=content,
-            size_hint=(0.92, 0.55),
+            size_hint=(0.92, 0.75),
             auto_dismiss=True,
             title_size=dp(18)
         )
