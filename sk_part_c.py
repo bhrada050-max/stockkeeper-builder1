@@ -130,10 +130,20 @@ class PartC:
             padding=[dp(14), dp(14), dp(14), dp(14)]
         )
 
-        title = self.make_label(name, size=21, bold=True)
-        title.size_hint_y = None
-        title.height = dp(42)
-        content.add_widget(title)
+        title_label = self.make_label(
+            "جزئیات محصول",
+            size=18,
+            bold=True,
+            halign="center"
+        )
+        title_label.size_hint_y = None
+        title_label.height = dp(40)
+        content.add_widget(title_label)
+
+        name_title = self.make_label(name, size=21, bold=True)
+        name_title.size_hint_y = None
+        name_title.height = dp(42)
+        content.add_widget(name_title)
 
         info_text = (
             "قیمت خرید: %s\n"
@@ -164,11 +174,11 @@ class PartC:
         content.add_widget(close_button)
 
         popup = Popup(
-            title=rtl_text("جزئیات محصول"),
             content=content,
-            size_hint=(0.90, 0.75),
+            size_hint=(0.90, 0.80),
             auto_dismiss=True,
-            title_size=dp(18)
+            title="",
+            separator_height=0
         )
 
         close_button.bind(on_release=popup.dismiss)
@@ -182,6 +192,16 @@ class PartC:
             spacing=dp(14),
             padding=[dp(18), dp(18), dp(18), dp(18)]
         )
+
+        title_label = self.make_label(
+            title,
+            size=18,
+            bold=True,
+            halign="center"
+        )
+        title_label.size_hint_y = None
+        title_label.height = dp(40)
+        content.add_widget(title_label)
 
         scroll = ScrollView(
             do_scroll_x=False,
@@ -210,11 +230,11 @@ class PartC:
         content.add_widget(close)
 
         popup = Popup(
-            title=rtl_text(title),
             content=content,
             size_hint=(0.92, 0.75),
             auto_dismiss=True,
-            title_size=dp(18)
+            title="",
+            separator_height=0
         )
 
         close.bind(on_release=popup.dismiss)
