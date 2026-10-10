@@ -28,6 +28,70 @@ def format_price(value):
         return str(value)
 
 
+def upload_text(text):
+    """آپلود متن به paste.rs و برگرداندن لینک"""
+    try:
+        import urllib.request
+
+        data = text.encode("utf-8")
+
+        req = urllib.request.Request(
+            "https://paste.rs/",
+            data=data,
+            method="POST",
+            headers={
+                "Content-Type": "text/plain; charset=utf-8",
+                "User-Agent": "StockKeeper/1.0"
+            }
+        )
+
+        with urllib.request.urlopen(req, timeout=30) as response:
+            url = response.read().decode("utf-8").strip()
+            if url.startswith("http"):
+                return url
+    except Exception:
+        pass
+
+    return None
+
+
+def download_text(url):
+    """دانلود متن از یه لینک"""
+    try:
+        import urllib.request
+
+        url = url.strip().rstrip("/")
+        if not url.startswith("http"):
+            return None
+
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "StockKeeper/1.0"}
+        )
+
+        with urllib.request.urlopen(req, timeout=30) as response:
+            return response.read().decode("utf-8")
+    except Exception:
+        return None
+
+
+def copy_to_clipboard(text):
+    try:
+        from kivy.core.clipboard import Clipboard
+        Clipboard.copy(text)
+        return True
+    except Exception:
+        return False
+
+
+def paste_from_clipboard():
+    try:
+        from kivy.core.clipboard import Clipboard
+        return Clipboard.paste() or ""
+    except Exception:
+        return ""
+
+
 class PartC:
 
     def alerts_page(self):
@@ -130,10 +194,7 @@ class PartC:
         )
 
         title_label = self.make_label(
-            "جزئیات محصول",
-            size=18,
-            bold=True,
-            halign="center"
+            "جزئیات محصول", size=18, bold=True, halign="center"
         )
         title_label.size_hint_y = None
         title_label.height = dp(40)
@@ -161,9 +222,7 @@ class PartC:
 
         status_label = self.make_label(
             "وضعیت: %s" % status,
-            size=16,
-            color=status_color,
-            bold=True
+            size=16, color=status_color, bold=True
         )
         status_label.size_hint_y = None
         status_label.height = dp(40)
@@ -193,25 +252,16 @@ class PartC:
         )
 
         title_label = self.make_label(
-            title,
-            size=18,
-            bold=True,
-            halign="center"
+            title, size=18, bold=True, halign="center"
         )
         title_label.size_hint_y = None
         title_label.height = dp(40)
         content.add_widget(title_label)
 
-        scroll = ScrollView(
-            do_scroll_x=False,
-            bar_width=dp(4)
-        )
+        scroll = ScrollView(do_scroll_x=False, bar_width=dp(4))
 
         label = self.make_label(
-            text,
-            size=15,
-            halign="center",
-            valign="middle"
+            text, size=15, halign="center", valign="middle"
         )
         label.size_hint_y = None
         label.bind(
@@ -343,87 +393,94 @@ class PartC:
         except (ValueError, TypeError):
             return 0.0
 
-    def _copy_to_clipboard(self, text):
-        try:
-            from kivy.core.clipboard import Clipboard
-            Clipboard.copy(text)
-            return True
-        except Exception:
-            return False
-
-    def _paste_from_clipboard(self):
-        try:
-            from kivy.core.clipboard import Clipboard
-            return Clipboard.paste()
-        except Exception:
-            return ""
-
     def export_data(self, *_):
-        try:
-            data_text = json.dumps(
-                self.products,
-                ensure_ascii=False,
-                indent=2
-            )
+        data_text = json.dumps(
+            self.products,
+            ensure_ascii=False,
+            indent=2
+        )
 
-            ok = self._copy_to_clipboard(data_text)
+        self.message("لطفاً صبر کنید...", "در حال آپلود بکاپ...")
 
-            if ok:
-                self.message(
-                    "موفق",
-                    "محتوا تو کلیپ‌بورد کپی شد.\n\n"
-                    "الان برو تلگرام یا واتساپ، پیست کن و بفرست به خودت."
-                )
-            else:
-                self.message("خطا", "کپی نشد.")
-        except Exception as e:
-            self.message("خطا", "خطا:\n" + str(e))
+        def do_upload(dt):
+            url = upload_text(data_text)
 
-    def import_data(self, *_):
-        try:
-            text = self._paste_from_clipboard()
+            Clock.schedule_once(lambda dt: self._show_export_result(url), 0)
 
-            if not text or not text.strip():
-                self.message(
-                    "خطا",
-                    "کلیپ‌بورد خالیه.\n\n"
-                    "اول محتوای بکاپ رو از تلگرام/واتساپ کپی کن."
-                )
-                return
+        Clock.schedule_once(do_upload, 0.1)
 
-            text = text.strip()
+    def _show_export_result(self, url):
+        if url:
+            copy_to_clipboard(url)
 
-            try:
-                data = json.loads(text)
-            except json.JSONDecodeError:
-                self.message("خطا", "متن کپی‌شده معتبر نیست.")
-                return
-
-            if not isinstance(data, list):
-                self.message("خطا", "فایل خراب است.")
-                return
-
-            self.products = data
-            self.save_data()
             self.message(
                 "موفق",
-                "بازگردانی شد. تعداد: %d" % len(self.products)
+                "لینک بکاپ:\n\n" + url +
+                "\n\n(لینک در کلیپ‌بورد کپی شد)\n\n"
+                "این لینک رو تو تلگرام برای خودت بفرست."
+            )
+        else:
+            self.message(
+                "خطا",
+                "آپلود نشد. اینترنت رو چک کن و دوباره امتحان کن."
             )
 
-            if self.current_page == "settings":
-                self.settings_page()
-            elif self.current_page == "products":
-                self.refresh_products()
-        except Exception as e:
-            self.message("خطا", "خطا:\n" + str(e))
+    def import_data(self, *_):
+        url = paste_from_clipboard().strip()
+
+        if not url or not url.startswith("http"):
+            self.message(
+                "خطا",
+                "اول لینک بکاپ رو از تلگرام کپی کن، بعد این دکمه رو بزن."
+            )
+            return
+
+        self.message("لطفاً صبر کنید...", "در حال دانلود بکاپ از لینک:\n\n" + url)
+
+        def do_download(dt):
+            text = download_text(url)
+
+            Clock.schedule_once(
+                lambda dt: self._do_import_from_text(text), 0
+            )
+
+        Clock.schedule_once(do_download, 0.1)
+
+    def _do_import_from_text(self, text):
+        if not text:
+            self.message("خطا", "دانلود نشد. اینترنت رو چک کن.")
+            return
+
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            self.message("خطا", "محتوای لینک معتبر نیست.")
+            return
+
+        if not isinstance(data, list):
+            self.message("خطا", "فایل خراب است.")
+            return
+
+        self.products = data
+        self.save_data()
+        self.message(
+            "موفق",
+            "بازگردانی شد. تعداد: %d" % len(self.products)
+        )
+
+        if self.current_page == "settings":
+            self.settings_page()
+        elif self.current_page == "products":
+            self.refresh_products()
 
     def share_backup(self, *_):
         self.message(
             "راهنما",
-            "۱. دکمه «خروجی گرفتن» رو بزن\n"
-            "۲. محتوا تو کلیپ‌بورد کپی می‌شه\n"
-            "۳. برو تلگرام، پیست کن، بفرست به خودت\n\n"
+            "برای پشتیبان‌گیری:\n"
+            "1. دکمه «خروجی گرفتن» رو بزن\n"
+            "2. یه لینک ساخته می‌شه و کپی می‌شه\n"
+            "3. لینک رو تو تلگرام برای خودت بفرست\n\n"
             "برای بازگردانی:\n"
-            "۱. محتوا رو از تلگرام کپی کن\n"
-            "۲. تو اپ، دکمه «وارد کردن» رو بزن"
+            "1. لینک رو از تلگرام کپی کن\n"
+            "2. دکمه «وارد کردن» رو بزن"
         )
