@@ -407,38 +407,66 @@ class PartC:
             )
             return
 
-        data_text = json.dumps(
-            self.products,
-            ensure_ascii=False,
-            indent=2
-        )
-
         self.message("لطفاً صبر کنید...", "در حال ساخت کد بکاپ...")
 
-        def do_upload(dt):
-            url = upload_text(data_text)
+        def do_work(dt):
+            items = []
+            for p in self.products:
+                name = str(p.get("name", "")).strip() or "بدون نام"
+                text = json.dumps([p], ensure_ascii=False, indent=2)
+                link = upload_text(text)
+                items.append((name, link))
+
+            all_text = json.dumps(self.products, ensure_ascii=False, indent=2)
+            all_link = upload_text(all_text)
 
             Clock.schedule_once(
-                lambda dt: self._show_export_result(url), 0
+                lambda dt: self._show_export_result(items, all_link),
+                0
             )
 
-        Clock.schedule_once(do_upload, 0.1)
+        Clock.schedule_once(do_work, 0.1)
 
-    def _show_export_result(self, url):
-        if url:
-            copy_to_clipboard(url)
-
-            self.message(
-                "بکاپ ساخته شد",
-                "کد بکاپ شما:\n\n" + url +
-                "\n\n(این کد در کلیپ‌بورد کپی شد)\n\n"
-                "این کد رو تو تلگرام برای خودت بفرست تا همیشه داشته باشی."
-            )
-        else:
+    def _show_export_result(self, items, all_link):
+        if not all_link:
             self.message(
                 "خطا",
                 "ساخته نشد. اینترنت رو چک کن و دوباره امتحان کن."
             )
+            return
+
+        copy_to_clipboard(all_link)
+
+        if len(items) == 1:
+            name, link = items[0]
+            body = (
+                "بکاپ گرفته شد.\n\n"
+                "محصول: " + name + "\n\n"
+                "کد: " + all_link + "\n\n"
+                "(کد در کلیپ‌بورد کپی شد)\n\n"
+                "این کد رو تو تلگرام برای خودت بفرست."
+            )
+        else:
+            lines = []
+            for i, (name, link) in enumerate(items, 1):
+                if link:
+                    lines.append(
+                        "%d. %s\n   %s" % (i, name, link)
+                    )
+                else:
+                    lines.append(
+                        "%d. %s\n   (ساخته نشد)" % (i, name)
+                    )
+
+            body = (
+                "این محصولات بکاپ گرفته شد:\n\n"
+                + "\n\n".join(lines) +
+                "\n\n🔸 کد بکاپ همه با هم:\n" + all_link +
+                "\n\n(کد همه در کلیپ‌بورد کپی شد)\n\n"
+                "این کد رو تو تلگرام برای خودت بفرست."
+            )
+
+        self.message("بکاپ ساخته شد", body)
 
     def import_data(self, *_):
         url = paste_from_clipboard().strip()
@@ -496,8 +524,8 @@ class PartC:
             "چطور بکاپ بگیرم؟\n"
             "1. دکمه «خروجی گرفتن» رو بزن\n"
             "2. چند ثانیه صبر کن\n"
-            "3. یه کد بهت می‌ده\n"
-            "4. اون کد رو تو تلگرام برای خودت بفرست\n\n"
+            "3. برای هر محصول یه کد، و یه کد برای همه با هم میاد\n"
+            "4. اون کدها رو تو تلگرام برای خودت بفرست\n\n"
             "چطور بکاپ رو برگردونم؟\n"
             "1. کد بکاپ رو از تلگرام کپی کن\n"
             "2. دکمه «وارد کردن» رو بزن\n"
