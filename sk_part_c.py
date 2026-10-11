@@ -399,6 +399,14 @@ class PartC:
             return 0.0
 
     def export_data(self, *_):
+        if not self.products:
+            self.message(
+                "بکاپ لازم نیست",
+                "هنوز هیچ محصولی نداری که بکاپ بگیری.\n\n"
+                "اول چند تا محصول اضافه کن، بعد بکاپ بگیر."
+            )
+            return
+
         data_text = json.dumps(
             self.products,
             ensure_ascii=False,
@@ -494,4 +502,4 @@ class PartC:
             "1. کد بکاپ رو از تلگرام کپی کن\n"
             "2. دکمه «وارد کردن» رو بزن\n"
             "3. اطلاعاتت برمی‌گرده"
-      )
+        )
