@@ -97,6 +97,43 @@ def paste_from_clipboard():
         return ""
 
 
+def merge_products(current, incoming):
+    """محصولات جدید رو با قدیمی‌ها ادغام می‌کنه"""
+    current_map = {}
+    order = []
+
+    for p in current:
+        if not isinstance(p, dict):
+            continue
+        name = str(p.get("name", "")).strip()
+        if not name:
+            continue
+        current_map[name] = p
+        order.append(name)
+
+    added = 0
+    updated = 0
+
+    for item in incoming:
+        if not isinstance(item, dict):
+            continue
+
+        name = str(item.get("name", "")).strip()
+        if not name:
+            continue
+
+        if name in current_map:
+            current_map[name] = item
+            updated += 1
+        else:
+            current_map[name] = item
+            order.append(name)
+            added += 1
+
+    result = [current_map[n] for n in order if n in current_map]
+    return result, added, updated
+
+
 class PartC:
 
     def alerts_page(self):
@@ -340,6 +377,204 @@ class PartC:
                         sale = float(item.get("price", 0))
 
                 except (ValueError, TypeError):
+                    continue
+
+                if qty < 0 or low < 0 or purchase < 0 or sale < 0:
+                    continue
+
+                clean.append({
+                    "name": name,
+                    "qty": qty,
+                    "purchase_price": purchase,
+                    "sale_price": sale,
+                    "low": low,
+                    "desc": str(item.get("desc", "") or "").strip(),
+                    "date": str(item.get("date", "") or "").strip()
+                })
+
+            self.products = clean
+
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            self.products = []
+
+    def save_data(self):
+        try:
+            path = self.data_file()
+            folder = os.path.dirname(path)
+            if folder and not os.path.exists(folder):
+                os.makedirs(folder, exist_ok=True)
+
+            temp_path = path + ".tmp"
+            with open(temp_path, "w", encoding="utf-8") as file:
+                json.dump(self.products, file, ensure_ascii=False, indent=2)
+
+            try:
+                os.replace(temp_path, path)
+            except OSError:
+                with open(path, "w", encoding="utf-8") as file:
+                    json.dump(self.products, file, ensure_ascii=False, indent=2)
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
+
+            return True
+
+        except (OSError, TypeError, ValueError):
+            return False
+
+    def safe_int(self, value):
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return 0
+
+    def safe_float(self, value):
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def export_data(self, *_):
+        if not self.products:
+            self.message(
+                "بکاپ لازم نیست",
+                "هنوز هیچ محصولی نداری که بکاپ بگیری.\n\n"
+                "اول چند تا محصول اضافه کن، بعد بکاپ بگیر."
+            )
+            return
+
+        self.message("لطفاً صبر کنید...", "در حال ساخت کد بکاپ...")
+
+        def do_work(dt):
+            items = []
+            for p in self.products:
+                name = str(p.get("name", "")).strip() or "بدون نام"
+                text = json.dumps([p], ensure_ascii=False, indent=2)
+                link = upload_text(text)
+                items.append((name, link))
+
+            all_text = json.dumps(self.products, ensure_ascii=False, indent=2)
+            all_link = upload_text(all_text)
+
+            Clock.schedule_once(
+                lambda dt: self._show_export_result(items, all_link),
+                0
+            )
+
+        Clock.schedule_once(do_work, 0.1)
+
+    def _show_export_result(self, items, all_link):
+        if not all_link:
+            self.message(
+                "خطا",
+                "ساخته نشد. اینترنت رو چک کن و دوباره امتحان کن."
+            )
+            return
+
+        copy_to_clipboard(all_link)
+
+        if len(items) == 1:
+            name, link = items[0]
+            body = (
+                "بکاپ گرفته شد.\n\n"
+                "محصول: " + name + "\n\n"
+                "کد: " + all_link + "\n\n"
+                "(کد در کلیپ‌بورد کپی شد)\n\n"
+                "این کد رو تو تلگرام برای خودت بفرست."
+            )
+        else:
+            lines = []
+            for i, (name, link) in enumerate(items, 1):
+                if link:
+                    lines.append(
+                        "%d. %s\n   %s" % (i, name, link)
+                    )
+                else:
+                    lines.append(
+                        "%d. %s\n   (ساخته نشد)" % (i, name)
+                    )
+
+            body = (
+                "این محصولات بکاپ گرفته شد:\n\n"
+                + "\n\n".join(lines) +
+                "\n\n🔸 کد بکاپ همه با هم:\n" + all_link +
+                "\n\n(کد همه در کلیپ‌بورد کپی شد)\n\n"
+                "این کد رو تو تلگرام برای خودت بفرست."
+            )
+
+        self.message("بکاپ ساخته شد", body)
+
+    def import_data(self, *_):
+        url = paste_from_clipboard().strip()
+
+        if not url or not url.startswith("http"):
+            self.message(
+                "خطا",
+                "اول کد بکاپ رو از تلگرام کپی کن، بعد این دکمه رو بزن."
+            )
+            return
+
+        self.message("لطفاً صبر کنید...", "در حال بازگردانی از کد:\n\n" + url)
+
+        def do_download(dt):
+            text = download_text(url)
+
+            Clock.schedule_once(
+                lambda dt: self._do_import_from_text(text), 0
+            )
+
+        Clock.schedule_once(do_download, 0.1)
+
+    def _do_import_from_text(self, text):
+        if not text:
+            self.message("خطا", "بازگردانی نشد. اینترنت رو چک کن.")
+            return
+
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            self.message("خطا", "کد بکاپ معتبر نیست.")
+            return
+
+        if not isinstance(data, list):
+            self.message("خطا", "کد بکاپ خراب است.")
+            return
+
+        # ادغام: محصولات فعلی نگه داشته می‌شوند، جدیدها اضافه می‌شوند
+        merged, added, updated = merge_products(self.products, data)
+
+        self.products = merged
+        self.save_data()
+
+        self.message(
+            "بازگردانی شد",
+            "اضافه شده: %d\n"
+            "آپدیت شده: %d\n"
+            "کل محصولات: %d"
+            % (added, updated, len(self.products))
+        )
+
+        if self.current_page == "settings":
+            self.settings_page()
+        elif self.current_page == "products":
+            self.refresh_products()
+
+    def share_backup(self, *_):
+        self.message(
+            "راهنمای بکاپ",
+            "بکاپ چیه؟\n"
+            "یه کد اینترنتی هست که اطلاعات محصولاتت رو نگه می‌داره.\n\n"
+            "چطور بکاپ بگیرم؟\n"
+            "1. دکمه «خروجی گرفتن» رو بزن\n"
+            "2. چند ثانیه صبر کن\n"
+            "3. برای هر محصول یه کد، و یه کد برای همه با هم میاد\n"
+            "4. اون کدها رو تو تلگرام برای خودت بفرست\n\n"
+            "چطور بکاپ رو برگردونم؟\n"
+            "1. کد بکاپ رو از تلگرام کپی کن\n"
+            "2. دکمه «وارد کردن» رو بزن\n"
+            "3. محصولات بکاپ به محصولات فعلی اضافه می‌شن"
+            )TypeError):
                     continue
 
                 if qty < 0 or low < 0 or purchase < 0 or sale < 0:
